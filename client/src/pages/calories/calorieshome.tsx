@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom'; // Correct import
+import '../../styles.css';
 
 const CaloriesHome = () => {
     const navigate = useNavigate(); // Initialize navigate
@@ -27,7 +28,7 @@ const CaloriesHome = () => {
                     textAlign: 'center', // Center the text horizontally
                     marginBottom: '20px'
                 }}>Insert box here</p>
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <div className='fixed-bottom-left'>
                     <button
                         onClick={handleBackButton}
                     >

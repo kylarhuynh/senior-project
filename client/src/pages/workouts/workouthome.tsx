@@ -1,7 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom'; // Correct import
+import '../../styles.css';
 
-const WorkoutsHome = () => {
+const WorkoutHome = () => {
     const navigate = useNavigate(); // Initialize navigate
 
     const handleBackButton = () => {
@@ -16,22 +17,46 @@ const WorkoutsHome = () => {
             height: '100vh' // Make sure the container takes full viewport height
         }}>
             {/* Center content horizontally and vertically */}
-            <div className="text-center p-8 bg-white rounded-lg shadow-lg w-full max-w-md">
+            <div className="text-center p-8 bg-white rounded-lg shadow-lg w-full max-w-md text-red-500">
                 <h1 style={{
                     textAlign: 'center', // Center the text horizontally
                     marginBottom: '20px'
                 }}>
-                    Workouts Home
+                    Workout Home
                 </h1>
-                <p style={{
-                    textAlign: 'center', // Center the text horizontally
-                    marginBottom: '20px'
-                }}>Insert stuff</p>
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                    <button
+                        onClick={() => navigate('/buildworkout')}
+                    >
+                        Build Workout
+                    </button>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                    <button
+                        onClick={() => navigate('/home')}
+                    >
+                        Premade Workouts
+                    </button>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                    <button
+                        onClick={() => navigate('/home')}
+                    >
+                        Free Workout
+                    </button>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                    <button
+                        onClick={() => navigate('/home')}
+                    >
+                        View Past Workouts
+                    </button>
+                </div>
+                <div className="fixed-bottom-left">
                     <button
                         onClick={handleBackButton}
                     >
-                        Back
+                        Home
                     </button>
                 </div>
             </div>
@@ -39,4 +64,4 @@ const WorkoutsHome = () => {
     );
 };
 
-export default WorkoutsHome;
+export default WorkoutHome;

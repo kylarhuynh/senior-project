@@ -1,0 +1,18 @@
+.fixed-bottom-left {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    justify-content: left;
+    margin-bottom: 20px;
+}
+
+.fixed-bottom-right {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    justify-content: right;
+    margin-bottom: 20px;
+}
+

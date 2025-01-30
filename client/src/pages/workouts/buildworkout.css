@@ -1,0 +1,75 @@
+.exercise-dropdown {
+    width: 100%;
+    padding: clamp(6px, 1vw, 12px);
+    margin-bottom: clamp(6px, 1vw, 12px);
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: clamp(12px, 1.5vw, 18px); /* Adjusts font size dynamically */
+}
+
+.add-exercise-btn {
+    background-color: gray;
+    color: white;
+    padding: clamp(6px, 1vw, 12px) clamp(10px, 2vw, 16px);
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-bottom: clamp(10px, 2vw, 20px);
+    font-size: clamp(12px, 1.5vw, 18px);
+}
+
+.exercise-list-container {
+    max-height: clamp(200px, 50vh, 400px); /* Adjusts height dynamically */
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: clamp(8px, 1.5vw, 12px);
+    background: #f8f8f8;
+}
+
+.exercise-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.exercise-item {
+    background: white;
+    padding: clamp(8px, 1vw, 12px);
+    margin-bottom: clamp(4px, 1vw, 8px);
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+    font-size: clamp(12px, 2vw, 18px); /* Dynamically adjust font size */
+}
+
+.exercise-buttons {
+    display: flex;
+    gap: clamp(6px, 1.5vw, 10px);
+}
+
+.edit-btn, .delete-btn {
+    font-size: clamp(10px, 1.5vw, 16px);
+    padding: clamp(4px, 0.8vw, 8px) clamp(6px, 1.2vw, 12px);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.edit-btn {
+    background-color: #f0ad4e;
+    color: white;
+    border: none;
+}
+
+.delete-btn {
+    background-color: #a12a26;
+    color: white;
+    border: none;
+}
+
+.fixed-bottom-left, .fixed-bottom-right {
+    position: absolute;
+    bottom: clamp(10px, 2vw, 20px);
+}

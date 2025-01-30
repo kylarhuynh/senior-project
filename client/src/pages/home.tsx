@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom'; // Correct import
+import '../styles.css';
 
 const HomePage = () => {
     const navigate = useNavigate(); // Initialize navigate
@@ -73,14 +74,7 @@ const HomePage = () => {
                         Workout
                     </button>
                 </div>
-                <div div style={{
-                    position: 'absolute',  // Positioning it absolutely on the page
-                    bottom: '20px',        // 20px from the bottom
-                    left: '20px',          // 20px from the left side
-                    display: 'flex',
-                    justifyContent: 'left',
-                    marginBottom: '20px'
-                }}>
+                <div className="fixed-bottom-left">
                     <button
                         onClick={handleLogoutButton}
                     >
