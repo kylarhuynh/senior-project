@@ -5,6 +5,9 @@ import HomePage from './pages/home.tsx';    // Importing the HomePage component
 import WorkoutHome from './pages/workouts/workouthome.tsx';
 import CaloriesHome from './pages/calories/calorieshome.tsx';
 import BuildWorkoutPage from './pages/workouts/buildworkout.tsx';
+import ViewPastPage from './pages/workouts/viewpastworkouts.tsx';
+import PremadeWorkoutsPage from './pages/workouts/premadeworkouts.tsx';
+import FreeWorkout from './pages/workouts/freeworkout.tsx';
 
 function App() {
   return (
@@ -16,6 +19,10 @@ function App() {
         <Route path="/workouthome" element={<WorkoutHome />} />  
         <Route path="/calorieshome" element={<CaloriesHome />} />  
         <Route path="/buildworkout" element={<BuildWorkoutPage />} />  
+        <Route path="/pastworkouts" element={<ViewPastPage />} />  
+        <Route path="/premadeworkouts" element={<PremadeWorkoutsPage />} />  
+        <Route path="/freeworkout" element={<FreeWorkout />} />  
+
       </Routes>
     </Router>
   );

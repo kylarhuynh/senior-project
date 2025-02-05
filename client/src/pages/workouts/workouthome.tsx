@@ -33,21 +33,21 @@ const WorkoutHome = () => {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
                     <button
-                        onClick={() => navigate('/home')}
+                        onClick={() => navigate('/premadeworkouts')}
                     >
                         Premade Workouts
                     </button>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
                     <button
-                        onClick={() => navigate('/home')}
+                        onClick={() => navigate('/freeworkout')}
                     >
                         Free Workout
                     </button>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
                     <button
-                        onClick={() => navigate('/home')}
+                        onClick={() => navigate('/pastworkouts')}
                     >
                         View Past Workouts
                     </button>
