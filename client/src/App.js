@@ -8,6 +8,7 @@ import BuildWorkoutPage from './pages/workouts/buildworkout.tsx';
 import ViewPastPage from './pages/workouts/viewpastworkouts.tsx';
 import PremadeWorkoutsPage from './pages/workouts/premadeworkouts.tsx';
 import FreeWorkout from './pages/workouts/freeworkout.tsx';
+import SignUpPage from './pages/signup.tsx';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} /> {/* Redirect from / to /login */}
         <Route path="/login" element={<LoginPage />} />  {/* LoginPage route */}
+        <Route path="/signup" element={<SignUpPage />} />  {/* LoginPage route */}
         <Route path="/home" element={<HomePage />} />  {/* HomePage route */}
         <Route path="/workouthome" element={<WorkoutHome />} />  
         <Route path="/calorieshome" element={<CaloriesHome />} />  
