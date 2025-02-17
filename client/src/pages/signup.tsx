@@ -18,7 +18,7 @@ const SignUpPage = () => {
             setMessage(`Signup Error: ${error.message}`);
         } else {
             setMessage("Signup successful! Check your email for confirmation.");
-            navigate("/home"); // Redirect after successful signup
+            navigate("/login"); // Redirect after successful signup
         }
     };
 
