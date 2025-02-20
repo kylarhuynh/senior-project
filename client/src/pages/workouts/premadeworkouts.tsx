@@ -3,12 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import '../../styles.css';
 
-const PremadeWorkoutsPage = () => {
+// Define TypeScript type for a workout
+type Workout = {
+    id: string;
+    name: string;
+    exercises: string[];
+};
+
+const PremadeWorkoutsPage: React.FC = () => {
     const navigate = useNavigate();
-    const [workouts, setWorkouts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [selectedWorkout, setSelectedWorkout] = useState(null); // Track workout for modal
+    const [workouts, setWorkouts] = useState<Workout[]>([]);  // Type: Array of Workout
+    const [loading, setLoading] = useState<boolean>(true);    // Type: boolean
+    const [error, setError] = useState<string | null>(null);  // Type: string or null
+    const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);  // Type: Workout or null
 
     useEffect(() => {
         const fetchWorkouts = async () => {

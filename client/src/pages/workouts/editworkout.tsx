@@ -1,19 +1,52 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import '../../styles.css';
 import './buildworkout.css';
 
-const BuildWorkoutPage = () => {
+// Define TypeScript types
+type Workout = {
+    id: string;
+    name: string;
+    exercises: string[];
+};
+
+const EditWorkoutPage: React.FC = () => {
+    const { workoutId } = useParams<{ workoutId: string }>(); // Get workoutId from URL
     const navigate = useNavigate();
-    const [workoutName, setWorkoutName] = useState('');
-    const [selectedExercise, setSelectedExercise] = useState('');
-    const [exerciseList, setExerciseList] = useState<string[]>([]);  // Type: string[]
-    const [editingIndex, setEditingIndex] = useState<number | null>(null);  // Type: number or null
-    const [error, setError] = useState('');
+    const [workoutName, setWorkoutName] = useState<string>('');
+    const [selectedExercise, setSelectedExercise] = useState<string>('');
+    const [exerciseList, setExerciseList] = useState<string[]>([]);
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [error, setError] = useState<string>('');
 
-    const exercises = ['Push-up', 'Squat', 'Bench Press', 'Deadlift', 'Pull-up'];
+    // Example list of exercises
+    const exercises: string[] = ['Push-up', 'Squat', 'Bench Press', 'Deadlift', 'Pull-up'];
 
+    // Fetch the workout details on component mount
+    useEffect(() => {
+        const fetchWorkout = async () => {
+            if (!workoutId) return;
+
+            const { data, error } = await supabase
+                .from('premade_workouts')
+                .select('*')
+                .eq('id', workoutId)
+                .single();
+
+            if (error) {
+                console.error("Failed to fetch workout:", error);
+                setError('Failed to load workout.');
+            } else if (data) {
+                setWorkoutName(data.name);
+                setExerciseList(data.exercises);
+            }
+        };
+
+        fetchWorkout();
+    }, [workoutId]);
+
+    // Handle adding a new exercise
     const handleAddExercise = () => {
         if (selectedExercise) {
             setExerciseList([...exerciseList, selectedExercise]);
@@ -21,11 +54,13 @@ const BuildWorkoutPage = () => {
         }
     };
 
-    const handleEditExercise = (index) => {
+    // Handle editing an existing exercise
+    const handleEditExercise = (index: number) => {
         setSelectedExercise(exerciseList[index]);
         setEditingIndex(index);
     };
 
+    // Save the edited exercise
     const handleSaveEdit = () => {
         if (editingIndex !== null && selectedExercise) {
             const updatedList = [...exerciseList];
@@ -36,10 +71,12 @@ const BuildWorkoutPage = () => {
         }
     };
 
-    const handleDeleteExercise = (index) => {
+    // Handle deleting an exercise
+    const handleDeleteExercise = (index: number) => {
         setExerciseList(exerciseList.filter((_, i) => i !== index));
     };
 
+    // Save the updated workout
     const handleSaveWorkout = async () => {
         if (!workoutName.trim()) {
             setError('Please enter a workout name.');
@@ -50,20 +87,16 @@ const BuildWorkoutPage = () => {
             return;
         }
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            setError('User not logged in.');
-            return;
-        }
-
         const { error } = await supabase
             .from('premade_workouts')
-            .insert([{ user_id: user.id, name: workoutName, exercises: exerciseList }]);
+            .update({ name: workoutName, exercises: exerciseList })
+            .eq('id', workoutId);
 
         if (error) {
-            setError(`Error saving workout: ${error.message}`);
+            setError(`Error updating workout: ${error.message}`);
+            console.error("Supabase Update Error:", error);
         } else {
-            alert('Workout saved successfully!');
+            alert('Workout updated successfully!');
             navigate('/premadeworkouts');
         }
     };
@@ -75,11 +108,9 @@ const BuildWorkoutPage = () => {
             height: '100vh'
         }}>
             <div className="text-center p-8 bg-white rounded-lg shadow-lg w-full max-w-md">
-                <h1 style={{ textAlign: 'center', marginBottom: '20px' }}>Build Workout</h1>
+                <h1 style={{ textAlign: 'center', marginBottom: '20px' }}>Edit Workout</h1>
 
-                {/* Centered Form */}
                 <div className="form-container">
-                    {/* Workout Name Input */}
                     <input
                         type="text"
                         placeholder="Workout Name"
@@ -88,7 +119,6 @@ const BuildWorkoutPage = () => {
                         className="workout-name-input"
                     />
 
-                    {/* Exercise Selection */}
                     <select
                         value={selectedExercise}
                         onChange={(e) => setSelectedExercise(e.target.value)}
@@ -108,31 +138,24 @@ const BuildWorkoutPage = () => {
                     </button>
                 </div>
 
-                {/* Exercise List (Fixed Alignment) */}
                 <div className="exercise-list-container">
-                    {exerciseList.length === 0 ? (
-                        <p style={{ fontSize: '14px', color: '#888' }}>No exercises added yet.</p>
-                    ) : (
-                        <ul className="exercise-list">
-                            {exerciseList.map((exercise, index) => (
-                                <li key={index} className="exercise-item">
-                                    {exercise}
-                                    <div className="exercise-buttons">
-                                        <button onClick={() => handleEditExercise(index)} className="edit-btn">Edit</button>
-                                        <button onClick={() => handleDeleteExercise(index)} className="delete-btn">Delete</button>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+                    <ul className="exercise-list">
+                        {exerciseList.map((exercise, index) => (
+                            <li key={index} className="exercise-item">
+                                {exercise}
+                                <div className="exercise-buttons">
+                                    <button onClick={() => handleEditExercise(index)} className="edit-btn">Edit</button>
+                                    <button onClick={() => handleDeleteExercise(index)} className="delete-btn">Delete</button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
 
-                {/* Error Message */}
                 {error && <p className="error-message">{error}</p>}
 
-                {/* Buttons */}
                 <div className="fixed-bottom-left">
-                    <button onClick={() => navigate('/workouthome')}>Cancel</button>
+                    <button onClick={() => navigate('/premadeworkouts')}>Cancel</button>
                 </div>
                 <div className="fixed-bottom-right">
                     <button onClick={handleSaveWorkout}>Save Workout</button>
@@ -142,4 +165,4 @@ const BuildWorkoutPage = () => {
     );
 };
 
-export default BuildWorkoutPage;
+export default EditWorkoutPage;
