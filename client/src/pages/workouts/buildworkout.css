@@ -1,12 +1,23 @@
-.exercise-dropdown {
+/* Ensures the form is centered */
+.form-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     width: 100%;
+}
+
+/* Makes inputs and dropdown fully align */
+.workout-name-input, 
+.exercise-dropdown {
+    width: 90%;
     padding: clamp(6px, 1vw, 12px);
     margin-bottom: clamp(6px, 1vw, 12px);
     border: 1px solid #ccc;
     border-radius: 4px;
-    font-size: clamp(12px, 1.5vw, 18px); /* Adjusts font size dynamically */
+    font-size: clamp(12px, 1.5vw, 18px);
 }
 
+/* Centered button */
 .add-exercise-btn {
     background-color: gray;
     color: white;
@@ -16,17 +27,24 @@
     border-radius: 4px;
     margin-bottom: clamp(10px, 2vw, 20px);
     font-size: clamp(12px, 1.5vw, 18px);
+    width: 90%;
 }
 
+/* Increased height and centered exercise list */
 .exercise-list-container {
-    max-height: clamp(200px, 50vh, 400px); /* Adjusts height dynamically */
+    max-height: clamp(250px, 60vh, 450px); 
+    min-height: 250px;
     overflow-y: auto;
     border: 1px solid #ddd;
     border-radius: 4px;
     padding: clamp(8px, 1.5vw, 12px);
     background: #f8f8f8;
+    width: 90%; /* Make it take full width inside */
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
-
 .exercise-list {
     list-style: none;
     padding: 0;
