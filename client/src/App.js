@@ -11,6 +11,7 @@ import FreeWorkout from './pages/workouts/freeworkout.tsx';
 import SignUpPage from './pages/signup.tsx';
 import EditWorkoutPage from './pages/workouts/editworkout.tsx';
 import ViewWorkoutDetails from './pages/workouts/workoutdetails.tsx';
+import UsePremadeWorkout from './pages/workouts/usepremadeworkout.tsx';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
         <Route path="/freeworkout" element={<FreeWorkout />} />  
         <Route path="/edit-workout/:workoutId" element={<EditWorkoutPage />} />
         <Route path="/view-workout/:workoutId" element={<ViewWorkoutDetails />} />
+        <Route path="/premade-workout/:workoutId" element={<UsePremadeWorkout />} />
 
       </Routes>
     </Router>

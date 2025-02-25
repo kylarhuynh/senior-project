@@ -48,7 +48,7 @@ const PremadeWorkoutsPage: React.FC = () => {
     };
 
     const handleUseWorkout = (workoutId) => {
-        navigate(`/use-workout/${workoutId}`);
+        navigate(`/premade-workout/${workoutId}`);
     };
 
     return (
