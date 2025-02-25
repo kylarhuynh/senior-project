@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import '../../styles.css';
 import './freeworkout.css';
+import { useRef } from 'react';
+
 
 // Type for Set Entry
 type SetEntry = {
@@ -15,31 +17,67 @@ type SetEntry = {
 const FreeWorkout: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation(); // Track navigation changes
-    const [workoutName, setWorkoutName] = useState<string>('');  
-    const [selectedExercise, setSelectedExercise] = useState<string>('');  
-    const [weight, setWeight] = useState<string>('');  
-    const [reps, setReps] = useState<string>('');  
-    const [sets, setSets] = useState<SetEntry[]>([]);  
-    const [editingIndex, setEditingIndex] = useState<number | null>(null);  
-    const [error, setError] = useState<string>('');  
+    const [workoutName, setWorkoutName] = useState<string>('');
+    const [selectedExercise, setSelectedExercise] = useState<string>('');
+    const [weight, setWeight] = useState<string>('');
+    const [reps, setReps] = useState<string>('');
+    const [sets, setSets] = useState<SetEntry[]>([]);
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [error, setError] = useState<string>('');
 
     const exercises: string[] = ['Bench Press', 'Squat', 'Deadlift', 'Pull-up', 'Overhead Press'];
 
+    const hasRestoredSets = useRef(false);
+
     // Reload saved data from localStorage on every navigation change
     useEffect(() => {
+        // Check if we've already restored sets to prevent infinite loop
+        if (hasRestoredSets.current) return;
+
         const savedWorkoutName = localStorage.getItem('workoutName');
         const savedSets = localStorage.getItem('sets');
-
         if (savedWorkoutName) setWorkoutName(savedWorkoutName);
+
         if (savedSets) {
             try {
-                setSets(JSON.parse(savedSets));
+                console.log("here");
+                const parsedSets = JSON.parse(savedSets);
+                if (Array.isArray(parsedSets)) {
+                    const restoredSets: SetEntry[] = [];
+
+                    // Loop through each saved set and add it to sets
+                    for (let i = 0; i < parsedSets.length; i++) {
+                        const set = parsedSets[i];
+                        console.log("Parsed Set: ", set);
+
+                        if (set.exercise && set.weight && set.reps) {
+                            const newSet: SetEntry = {
+                                id: Date.now() + i, // Add 'i' to ensure unique IDs
+                                exercise: set.exercise,
+                                weight: parseFloat(set.weight),
+                                reps: parseInt(set.reps)
+                            };
+
+                            restoredSets.push(newSet); // Push to temporary array
+                        }
+                    }
+
+                    console.log("restoredSets:", restoredSets);
+
+                    // Update state once after the loop
+                    setSets([...restoredSets]);
+
+                    // Mark as restored to prevent infinite loop
+                    hasRestoredSets.current = true;
+                }
             } catch (error) {
                 console.error('Failed to parse saved sets:', error);
                 setSets([]);
             }
         }
-    }, [location.key]); // Reload data whenever the user navigates to this page
+    }, [location.key]);
+
+
 
     // Save workout name and sets to local storage whenever they change
     useEffect(() => {
@@ -153,7 +191,7 @@ const FreeWorkout: React.FC = () => {
     // Confirmation and navigation for Back button
     const handleBackButton = () => {
         const confirmLeave = window.confirm("Do you want to save your progress before leaving?");
-        
+
         if (confirmLeave) {
             localStorage.setItem('workoutName', workoutName);
             localStorage.setItem('sets', JSON.stringify(sets));
@@ -163,7 +201,7 @@ const FreeWorkout: React.FC = () => {
             localStorage.removeItem('sets');
             alert('Your progress has been discarded.');
         }
-        
+
         navigate('/workouthome');
     };
 
