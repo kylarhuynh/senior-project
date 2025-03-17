@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import '../../styles.css';
+import axios from 'axios';
+
+const USDA_API_KEY = "aYdSpnOpelOvhdc8zOOf9gbhkcZoEmbn6M5haqZb";
 
 const CaloriesHome: React.FC = () => {
     const navigate = useNavigate();
@@ -12,8 +15,9 @@ const CaloriesHome: React.FC = () => {
     const [entries, setEntries] = useState<{ id: string; food_name: string; calories: number }[]>([]);
     const [totalCalories, setTotalCalories] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [loadingCalories, setLoadingCalories] = useState(false); // ✅ New state for fetching calories
     const [error, setError] = useState('');
-    const [showEditGoalModal, setShowEditGoalModal] = useState(false); // Controls the modal
+    const [showEditGoalModal, setShowEditGoalModal] = useState(false);
 
     useEffect(() => {
         fetchCalorieGoal();
@@ -24,13 +28,10 @@ const CaloriesHome: React.FC = () => {
         navigate('/home');
     };
 
-    // Fetch user's calorie goal properly
+    // Fetch user's calorie goal
     const fetchCalorieGoal = async () => {
         const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData.user) {
-            console.error('Error fetching user:', userError);
-            return;
-        }
+        if (userError || !userData.user) return;
 
         const { data, error } = await supabase
             .from('users')
@@ -38,21 +39,14 @@ const CaloriesHome: React.FC = () => {
             .eq('id', userData.user.id)
             .single();
 
-        if (error) {
-            console.error('Error fetching calorie goal:', error);
-            return;
-        }
-
-        setCalorieGoal(data.calorie_goal);
+        if (!error) setCalorieGoal(data.calorie_goal);
     };
 
-    // Fetch today's calorie entries properly
+    // Fetch today's calorie entries
     const fetchTodaysEntries = async () => {
         setLoading(true);
-
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) {
-            console.error('Error fetching user:', userError);
             setLoading(false);
             return;
         }
@@ -63,14 +57,10 @@ const CaloriesHome: React.FC = () => {
             .eq('user_id', userData.user.id)
             .eq('date', new Date().toISOString().split('T')[0]);
 
-        if (error) {
-            console.error('Error fetching entries:', error);
-            setLoading(false);
-            return;
+        if (!error) {
+            setEntries(data);
+            setTotalCalories(data.reduce((sum, entry) => sum + entry.calories, 0));
         }
-
-        setEntries(data);
-        setTotalCalories(data.reduce((sum, entry) => sum + entry.calories, 0));
         setLoading(false);
     };
 
@@ -101,6 +91,69 @@ const CaloriesHome: React.FC = () => {
         }
     };
 
+    // Debounce API Call for USDA Calories (Prevents Spamming API)
+    useEffect(() => {
+        if (!foodName.trim()) {
+            setCalories('');
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            fetchCaloriesFromUSDA(foodName);
+        }, 800); // Wait 800ms before calling API
+
+        return () => clearTimeout(timer);
+    }, [foodName]);
+
+    const fetchCaloriesFromUSDA = async (query: string) => {
+        if (!query) return;
+        setLoadingCalories(true);
+
+        try {
+            const response = await axios.get(
+                `https://api.nal.usda.gov/fdc/v1/foods/search`,
+                {
+                    params: {
+                        api_key: USDA_API_KEY,
+                        query: query,
+                        dataType: "Foundation, SR Legacy",
+                        pageSize: 1,
+                    },
+                }
+            );
+
+            if (response.data.foods.length > 0) {
+                const foodItem = response.data.foods[0];
+
+                // Extract serving size (default to 1 if missing)
+                const servingSize = foodItem.servingSize || 1;
+
+                // Extract calories from food nutrients
+                const foodCalories = foodItem.foodNutrients.find(
+                    (nutrient: any) => nutrient.nutrientId === 1008
+                )?.value;
+
+                if (foodCalories) {
+                    // Calories per full serving
+                    const caloriesPerServing = Math.round((foodCalories / servingSize) * servingSize);
+
+                    setCalories(caloriesPerServing.toString());
+                } else {
+                    setCalories("0"); // Prevent previous value from persisting
+                    setError("Food found, but calorie data is missing.");
+                }
+            } else {
+                setCalories("0"); // Prevent previous value from persisting
+                setError("Food not found in database.");
+            }
+        } catch (error) {
+            console.error("Error fetching calories:", error);
+            setError("Failed to fetch food data.");
+        } finally {
+            setLoadingCalories(false);
+        }
+    };
+
     // Add food entry
     const handleAddEntry = async () => {
         if (!foodName.trim() || !calories.trim() || isNaN(parseInt(calories))) {
@@ -109,10 +162,7 @@ const CaloriesHome: React.FC = () => {
         }
 
         const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData.user) {
-            console.error('Error fetching user:', userError);
-            return;
-        }
+        if (userError || !userData.user) return;
 
         const { data, error } = await supabase
             .from('calorie_entries')
@@ -126,35 +176,31 @@ const CaloriesHome: React.FC = () => {
             ])
             .select();
 
-        if (error) {
-            console.error('Error adding entry:', error);
-            return;
+        if (!error) {
+            setEntries([...entries, data[0]]);
+            setTotalCalories(prevTotal => prevTotal + parseInt(calories));
+            setFoodName('');
+            setCalories('');
         }
-
-        setEntries([...entries, data[0]]);
-        setTotalCalories(totalCalories + parseInt(calories));
-        setFoodName('');
-        setCalories('');
     };
 
-    // Delete an entry properly
+    // Delete an entry with confirmation
     const handleDeleteEntry = async (id: string, cal: number) => {
+        const confirmDelete = window.confirm("Are you sure you want to delete this entry?");
+        if (!confirmDelete) return;
+
         const { error } = await supabase.from('calorie_entries').delete().eq('id', id);
 
-        if (error) {
-            console.error('Error deleting entry:', error);
-            return;
+        if (!error) {
+            setEntries(entries.filter(entry => entry.id !== id));
+            setTotalCalories(prevTotal => prevTotal - cal);
         }
-
-        setEntries(entries.filter(entry => entry.id !== id));
-        setTotalCalories(totalCalories - cal);
     };
 
     return (
         <div className="calories-container">
             <h1>Calorie Tracker</h1>
 
-            {/* Edit Calorie Goal Button */}
             {calorieGoal !== null && (
                 <div className="fixed-top-right">
                     <button className="edit-goal-btn" onClick={() => setShowEditGoalModal(true)}>
@@ -193,49 +239,25 @@ const CaloriesHome: React.FC = () => {
                         <input
                             type="number"
                             placeholder="Calories"
-                            value={calories}
+                            value={loadingCalories ? "" : calories} // ✅ No "Fetching..." text
                             onChange={(e) => setCalories(e.target.value)}
                         />
                         <button onClick={handleAddEntry}>Add</button>
                     </div>
 
                     <h3>Today's Meals</h3>
-                    {loading ? (
-                        <p>Loading entries...</p>
-                    ) : (
-                        <ul className="food-list">
-                            {entries.map(entry => (
-                                <li key={entry.id}>
-                                    {entry.food_name} - {entry.calories} cal
-                                    <button onClick={() => handleDeleteEntry(entry.id, entry.calories)}>Delete</button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-
-                    <button onClick={() => navigate('/calorie-history')}>View Previous Days</button>
+                    {entries.map(entry => (
+                        <li key={entry.id}>
+                            {entry.food_name} - {entry.calories} cal
+                            <button onClick={() => handleDeleteEntry(entry.id, entry.calories)}>Delete</button>
+                        </li>
+                    ))}
                 </>
             )}
 
             <div className="fixed-bottom-left">
                 <button onClick={handleBackButton}>Home</button>
             </div>
-
-            {showEditGoalModal && (
-                <div className="modal-overlay" onClick={() => setShowEditGoalModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h2>Edit Calorie Goal</h2>
-                        <input
-                            type="number"
-                            placeholder="New calorie goal"
-                            value={newCalorieGoal}
-                            onChange={(e) => setNewCalorieGoal(e.target.value)}
-                        />
-                        <button onClick={handleSetCalorieGoal}>Update Goal</button>
-                        <button onClick={() => setShowEditGoalModal(false)}>Cancel</button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
