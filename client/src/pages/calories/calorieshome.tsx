@@ -213,7 +213,7 @@ const CaloriesHome: React.FC = () => {
                         </ul>
                     )}
 
-                    <button onClick={() => navigate('/previous-calories')}>View Previous Days</button>
+                    <button onClick={() => navigate('/calorie-history')}>View Previous Days</button>
                 </>
             )}
 

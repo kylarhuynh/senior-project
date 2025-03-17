@@ -1,29 +1,71 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom'; // Correct import
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 import '../styles.css';
-// import styles from './home.module.css';
 
-const HomePage = () => {
-    const navigate = useNavigate(); // Initialize navigate
+const HomePage: React.FC = () => {
+    const navigate = useNavigate();
+    const [calorieGoal, setCalorieGoal] = useState<number | null>(null);
+    const [totalCaloriesConsumed, setTotalCaloriesConsumed] = useState<number>(0);
+    const [remainingCalories, setRemainingCalories] = useState<number | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    const handleWorkoutButton = () => {
-        navigate('/workouthome');  // Navigate to Home page
-    };
+    useEffect(() => {
+        fetchUserData();
+    }, []);
 
-    const handleCaloriesButton = () => {
-        navigate('/calorieshome');  // Navigate to Home page
-    };
+    const fetchUserData = async () => {
+        setLoading(true);
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData.user) {
+            console.error('Error fetching user:', userError);
+            setLoading(false);
+            return;
+        }
 
-    const handleLogoutButton = () => {
-        navigate('/login');  // Navigate to Home page
+        const userId = userData.user.id;
+
+        // Fetch the user's calorie goal
+        const { data: userCalorieData, error: calorieError } = await supabase
+            .from('users')
+            .select('calorie_goal')
+            .eq('id', userId)
+            .single();
+
+        if (calorieError) {
+            console.error('Error fetching calorie goal:', calorieError);
+            setLoading(false);
+            return;
+        }
+
+        setCalorieGoal(userCalorieData.calorie_goal);
+
+        // Fetch today's calorie entries
+        const { data: entriesData, error: entriesError } = await supabase
+            .from('calorie_entries')
+            .select('calories')
+            .eq('user_id', userId)
+            .eq('date', new Date().toISOString().split('T')[0]);
+
+        if (entriesError) {
+            console.error('Error fetching calorie entries:', entriesError);
+            setLoading(false);
+            return;
+        }
+
+        // Calculate total calories consumed today
+        const totalCalories = entriesData.reduce((sum, entry) => sum + entry.calories, 0);
+        setTotalCaloriesConsumed(totalCalories);
+
+        // Calculate remaining calories
+        setRemainingCalories(userCalorieData.calorie_goal - totalCalories);
+        setLoading(false);
     };
 
     return (
         <div className="centeritems">
             {/* Center content horizontally and vertically */}
-            <h1 className="heading">
-                Home Page
-            </h1>
+            <h1 className="heading">Home Page</h1>
 
             {/* Starter Box for Workouts and Calories */}
             <div style={{
@@ -47,24 +89,29 @@ const HomePage = () => {
                 {/* Calories Left */}
                 <div>
                     <h3>Calories Left</h3>
-                    <p>You have <strong>450</strong> calories left for the day!</p>
+                    {loading ? (
+                        <p>Loading...</p>
+                    ) : calorieGoal !== null ? (
+                        <p>You have <strong>{remainingCalories}</strong> calories left for the day!</p>
+                    ) : (
+                        <p>No calorie goal set. <button onClick={() => navigate('/calorieshome')}>Set Goal</button></p>
+                    )}
                 </div>
             </div>
 
-            <button onClick={handleCaloriesButton}>
+            <button onClick={() => navigate('/calorieshome')}>
                 Input Calories
             </button>
             
-            <button onClick={handleWorkoutButton}>
+            <button onClick={() => navigate('/workouthome')}>
                 Workout
             </button>
 
             <div className="fixed-bottom-left">
-                <button onClick={handleLogoutButton}>
+                <button onClick={() => navigate('/login')}>
                     Logout
                 </button>
             </div>
-
         </div>
     );
 };
