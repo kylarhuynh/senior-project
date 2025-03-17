@@ -15,9 +15,11 @@ const CalorieHistory: React.FC = () => {
     const [entries, setEntries] = useState<CalorieEntry[]>([]);
     const [totalCalories, setTotalCalories] = useState<number>(0);
     const [loading, setLoading] = useState<boolean>(true);
-    const [editingEntry, setEditingEntry] = useState<CalorieEntry | null>(null); // Tracks the entry being edited
+    const [editingEntry, setEditingEntry] = useState<CalorieEntry | null>(null);
     const [updatedFoodName, setUpdatedFoodName] = useState<string>('');
     const [updatedCalories, setUpdatedCalories] = useState<string>('');
+    const [newFoodName, setNewFoodName] = useState<string>('');
+    const [newCalories, setNewCalories] = useState<string>('');
 
     useEffect(() => {
         fetchEntriesForDate(selectedDate);
@@ -83,6 +85,61 @@ const CalorieHistory: React.FC = () => {
         setEditingEntry(null);
     };
 
+    // Delete an entry with confirmation
+    const handleDeleteEntry = async (id: string, cal: number) => {
+        const confirmDelete = window.confirm("Are you sure you want to delete this entry?");
+        if (!confirmDelete) return;
+
+        const { error } = await supabase
+            .from('calorie_entries')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting entry:', error);
+            return;
+        }
+
+        setEntries(entries.filter(entry => entry.id !== id));
+        setTotalCalories(totalCalories - cal);
+    };
+
+    // Add a new entry
+    const handleAddEntry = async () => {
+        if (!newFoodName.trim() || !newCalories.trim() || isNaN(parseInt(newCalories))) {
+            alert("Enter a valid food name and calorie amount.");
+            return;
+        }
+
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData.user) {
+            console.error('Error fetching user:', userError);
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('calorie_entries')
+            .insert([
+                {
+                    user_id: userData.user.id,
+                    food_name: newFoodName,
+                    calories: parseInt(newCalories),
+                    date: selectedDate
+                }
+            ])
+            .select();
+
+        if (error) {
+            console.error('Error adding entry:', error);
+            return;
+        }
+
+        setEntries([...entries, data[0]]);
+        setTotalCalories(totalCalories + parseInt(newCalories));
+        setNewFoodName('');
+        setNewCalories('');
+    };
+
     return (
         <div className="calorie-history-container">
             <h1>Calorie History</h1>
@@ -98,6 +155,25 @@ const CalorieHistory: React.FC = () => {
             {/* Display Calorie Summary */}
             <div className="calorie-summary">
                 <h2>Total Calories: {totalCalories} cal</h2>
+            </div>
+
+            {/* Add New Entry */}
+            <div className="add-entry-container">
+                <input
+                    type="text"
+                    placeholder="Food Name"
+                    value={newFoodName}
+                    onChange={(e) => setNewFoodName(e.target.value)}
+                    className="food-input"
+                />
+                <input
+                    type="number"
+                    placeholder="Calories"
+                    value={newCalories}
+                    onChange={(e) => setNewCalories(e.target.value)}
+                    className="calories-input"
+                />
+                <button onClick={handleAddEntry} className="add-entry-btn">Add</button>
             </div>
 
             {/* Food Entries for Selected Date */}
@@ -130,7 +206,8 @@ const CalorieHistory: React.FC = () => {
                                 ) : (
                                     <div className="entry-display">
                                         {entry.food_name} - {entry.calories} cal
-                                        <button onClick={() => handleEditEntry(entry)} className="edit-btn">Edit</button>
+                                        <button onClick={() => handleEditEntry(entry)} >Edit</button>
+                                        <button onClick={() => handleDeleteEntry(entry.id, entry.calories)}>Delete</button>
                                     </div>
                                 )}
                             </li>
