@@ -17,6 +17,17 @@ const SignUpPage = () => {
         if (error) {
             setMessage(`Signup Error: ${error.message}`);
         } else {
+
+            if (data.user) {
+                // Insert new user into `users` table
+                const { error: insertError } = await supabase
+                    .from('users')
+                    .insert([{ id: data.user.id, email: email }]);
+        
+                if (insertError) {
+                    console.error("Error creating user entry:", insertError);
+                }
+            }
             setMessage("Signup successful! Check your email for confirmation.");
             navigate("/login"); // Redirect after successful signup
         }
