@@ -252,13 +252,15 @@ const CaloriesHome: React.FC = () => {
                             <button onClick={() => handleDeleteEntry(entry.id, entry.calories)}>Delete</button>
                         </li>
                     ))}
+                    <button onClick={() => navigate('/calorie-history')}>View Previous Days</button>
                 </>
-            )}
+    )
+}
 
-            <div className="fixed-bottom-left">
-                <button onClick={handleBackButton}>Home</button>
-            </div>
-        </div>
+<div className="fixed-bottom-left">
+    <button onClick={handleBackButton}>Home</button>
+</div>
+        </div >
     );
 };
 
