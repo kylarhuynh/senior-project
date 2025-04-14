@@ -1,42 +1,100 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import '../../styles.css';
 import './buildworkout.css';
 
+const normalizeExerciseName = (name: string) => {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/gi, '') // removes punctuation AND spaces
+      .replace(/s$/, '');         // optional: remove plural 's'
+  };
+  
+
 const BuildWorkoutPage = () => {
     const navigate = useNavigate();
     const [workoutName, setWorkoutName] = useState('');
     const [selectedExercise, setSelectedExercise] = useState('');
-    const [exerciseList, setExerciseList] = useState<string[]>([]);  // Type: string[]
-    const [editingIndex, setEditingIndex] = useState<number | null>(null);  // Type: number or null
+    const [exerciseList, setExerciseList] = useState<string[]>([]);
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [error, setError] = useState('');
+    const [exercises, setExercises] = useState<string[]>([]);
 
-    const exercises = ['Push-up', 'Squat', 'Bench Press', 'Deadlift', 'Pull-up'];
+    useEffect(() => {
+        const fetchGlobalExercises = async () => {
+            const { data, error } = await supabase
+                .from('exercises')
+                .select('exercise_name')
+                .order('exercise_name');
 
-    const handleAddExercise = () => {
+            if (error) {
+                console.error("Failed to fetch exercises:", error);
+            } else {
+                const names = data.map((ex: any) => ex.exercise_name);
+                setExercises(names);
+            }
+        };
+
+        fetchGlobalExercises();
+    }, []);
+
+    const handleAddExercise = async () => {
         if (selectedExercise) {
-            setExerciseList([...exerciseList, selectedExercise]);
+            const normalizedName = normalizeExerciseName(selectedExercise);
+            const matchedExercise = exercises.find(
+                (e) => normalizeExerciseName(e) === normalizedName
+            );
+
+            const nameToUse = matchedExercise || selectedExercise;
+            setExerciseList([...exerciseList, nameToUse]);
             setSelectedExercise('');
+            setEditingIndex(null);
+
+            if (!matchedExercise) {
+                const { data: existing, error: lookupError } = await supabase
+                    .from('exercises')
+                    .select()
+                    .ilike('exercise_name', `%${normalizedName}%`);
+
+                if (!existing || existing.length === 0) {
+                    const { error: insertError } = await supabase
+                        .from('exercises')
+                        .insert([{ exercise_name: selectedExercise }]);
+
+                    if (insertError && insertError.code !== '23505') {
+                        console.error("Failed to insert new exercise:", insertError);
+                    } else {
+                        setExercises(prev => [...prev, selectedExercise]);
+                    }
+                }
+            }
         }
     };
 
-    const handleEditExercise = (index) => {
+    const handleEditExercise = (index: number) => {
         setSelectedExercise(exerciseList[index]);
         setEditingIndex(index);
     };
 
     const handleSaveEdit = () => {
         if (editingIndex !== null && selectedExercise) {
+            const normalizedName = normalizeExerciseName(selectedExercise);
+            const matchedExercise = exercises.find(
+                (e) => normalizeExerciseName(e) === normalizedName
+            );
+
+            const nameToUse = matchedExercise || selectedExercise;
             const updatedList = [...exerciseList];
-            updatedList[editingIndex] = selectedExercise;
+            updatedList[editingIndex] = nameToUse;
             setExerciseList(updatedList);
             setEditingIndex(null);
             setSelectedExercise('');
         }
     };
 
-    const handleDeleteExercise = (index) => {
+    const handleDeleteExercise = (index: number) => {
         setExerciseList(exerciseList.filter((_, i) => i !== index));
     };
 
@@ -77,9 +135,7 @@ const BuildWorkoutPage = () => {
             <div className="text-center p-8 bg-white rounded-lg shadow-lg w-full max-w-md">
                 <h1 style={{ textAlign: 'center', marginBottom: '20px' }}>Build Workout</h1>
 
-                {/* Centered Form */}
                 <div className="form-container">
-                    {/* Workout Name Input */}
                     <input
                         type="text"
                         placeholder="Workout Name"
@@ -88,17 +144,19 @@ const BuildWorkoutPage = () => {
                         className="workout-name-input"
                     />
 
-                    {/* Exercise Selection */}
-                    <select
+                    <input
+                        type="text"
+                        list="exercise-options"
+                        placeholder="Enter or select an exercise"
                         value={selectedExercise}
                         onChange={(e) => setSelectedExercise(e.target.value)}
                         className="exercise-dropdown"
-                    >
-                        <option value="">Select an Exercise</option>
+                    />
+                    <datalist id="exercise-options">
                         {exercises.map((exercise, index) => (
-                            <option key={index} value={exercise}>{exercise}</option>
+                            <option key={index} value={exercise} />
                         ))}
-                    </select>
+                    </datalist>
 
                     <button 
                         onClick={editingIndex !== null ? handleSaveEdit : handleAddExercise} 
@@ -108,7 +166,6 @@ const BuildWorkoutPage = () => {
                     </button>
                 </div>
 
-                {/* Exercise List (Fixed Alignment) */}
                 <div className="exercise-list-container">
                     {exerciseList.length === 0 ? (
                         <p style={{ fontSize: '14px', color: '#888' }}>No exercises added yet.</p>
@@ -127,10 +184,8 @@ const BuildWorkoutPage = () => {
                     )}
                 </div>
 
-                {/* Error Message */}
                 {error && <p className="error-message">{error}</p>}
 
-                {/* Buttons */}
                 <div className="fixed-bottom-left">
                     <button onClick={() => navigate('/workouthome')}>Cancel</button>
                 </div>

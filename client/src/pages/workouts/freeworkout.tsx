@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import '../../styles.css';
 import './freeworkout.css';
-import { useRef } from 'react';
-
 
 // Type for Set Entry
 type SetEntry = {
@@ -14,9 +12,18 @@ type SetEntry = {
     reps: number;
 };
 
+const normalizeExerciseName = (name: string) => {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/gi, '') // removes punctuation AND spaces
+      .replace(/s$/, '');         // optional: remove plural 's'
+  };
+  
+
 const FreeWorkout: React.FC = () => {
     const navigate = useNavigate();
-    const location = useLocation(); // Track navigation changes
+    const location = useLocation();
     const [workoutName, setWorkoutName] = useState<string>('');
     const [selectedExercise, setSelectedExercise] = useState<string>('');
     const [weight, setWeight] = useState<string>('');
@@ -24,14 +31,29 @@ const FreeWorkout: React.FC = () => {
     const [sets, setSets] = useState<SetEntry[]>([]);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [error, setError] = useState<string>('');
-
-    const exercises: string[] = ['Bench Press', 'Squat', 'Deadlift', 'Pull-up', 'Overhead Press'];
+    const [exercises, setExercises] = useState<string[]>([]);
 
     const hasRestoredSets = useRef(false);
 
-    // Reload saved data from localStorage on every navigation change
     useEffect(() => {
-        // Check if we've already restored sets to prevent infinite loop
+        const fetchGlobalExercises = async () => {
+            const { data, error } = await supabase
+                .from('exercises')
+                .select('exercise_name')
+                .order('exercise_name');
+
+            if (error) {
+                console.error("Failed to fetch exercises:", error);
+            } else {
+                const names = data.map((ex: any) => ex.exercise_name);
+                setExercises(names);
+            }
+        };
+
+        fetchGlobalExercises();
+    }, []);
+
+    useEffect(() => {
         if (hasRestoredSets.current) return;
 
         const savedWorkoutName = localStorage.getItem('workoutName');
@@ -40,34 +62,15 @@ const FreeWorkout: React.FC = () => {
 
         if (savedSets) {
             try {
-                console.log("here");
                 const parsedSets = JSON.parse(savedSets);
                 if (Array.isArray(parsedSets)) {
-                    const restoredSets: SetEntry[] = [];
-
-                    // Loop through each saved set and add it to sets
-                    for (let i = 0; i < parsedSets.length; i++) {
-                        const set = parsedSets[i];
-                        console.log("Parsed Set: ", set);
-
-                        if (set.exercise && set.weight && set.reps) {
-                            const newSet: SetEntry = {
-                                id: Date.now() + i, // Add 'i' to ensure unique IDs
-                                exercise: set.exercise,
-                                weight: parseFloat(set.weight),
-                                reps: parseInt(set.reps)
-                            };
-
-                            restoredSets.push(newSet); // Push to temporary array
-                        }
-                    }
-
-                    console.log("restoredSets:", restoredSets);
-
-                    // Update state once after the loop
-                    setSets([...restoredSets]);
-
-                    // Mark as restored to prevent infinite loop
+                    const restoredSets: SetEntry[] = parsedSets.map((set: any, i: number) => ({
+                        id: Date.now() + i,
+                        exercise: set.exercise,
+                        weight: parseFloat(set.weight),
+                        reps: parseInt(set.reps)
+                    }));
+                    setSets(restoredSets);
                     hasRestoredSets.current = true;
                 }
             } catch (error) {
@@ -77,35 +80,57 @@ const FreeWorkout: React.FC = () => {
         }
     }, [location.key]);
 
-
-
-    // Save workout name and sets to local storage whenever they change
     useEffect(() => {
         localStorage.setItem('workoutName', workoutName);
         localStorage.setItem('sets', JSON.stringify(sets));
     }, [workoutName, sets]);
 
-    // Add new set
-    const handleAddSet = () => {
+    const handleAddSet = async () => {
         if (selectedExercise && weight && reps) {
+            const normalizedName = normalizeExerciseName(selectedExercise);
+            const matchedExercise = exercises.find(
+                (e) => normalizeExerciseName(e) === normalizedName
+            );
+
             const newSet: SetEntry = {
                 id: Date.now(),
-                exercise: selectedExercise,
+                exercise: matchedExercise || selectedExercise,
                 weight: parseFloat(weight),
                 reps: parseInt(reps)
             };
 
             setSets([...sets, newSet]);
+            setSelectedExercise('');
             setWeight('');
             setReps('');
             setEditingIndex(null);
             setError('');
+
+            if (!matchedExercise) {
+                const { data: existing, error: lookupError } = await supabase
+                    .from('exercises')
+                    .select()
+                    .ilike('exercise_name', `%${normalizedName}%`);
+
+                if (lookupError) {
+                    console.error("Error looking up exercise:", lookupError);
+                } else if (!existing || existing.length === 0) {
+                    const { error: insertError } = await supabase
+                        .from('exercises')
+                        .insert([{ exercise_name: selectedExercise }]);
+
+                    if (insertError && insertError.code !== '23505') {
+                        console.error("Failed to insert new exercise:", insertError);
+                    } else {
+                        setExercises(prev => [...prev, selectedExercise]);
+                    }
+                }
+            }
         } else {
             setError('Please select an exercise and enter weight and reps.');
         }
     };
 
-    // Edit existing set
     const handleEditSet = (index: number) => {
         const setToEdit = sets[index];
         setSelectedExercise(setToEdit.exercise);
@@ -114,7 +139,6 @@ const FreeWorkout: React.FC = () => {
         setEditingIndex(index);
     };
 
-    // Save edited set
     const handleSaveEdit = () => {
         if (editingIndex !== null && selectedExercise && weight && reps) {
             const updatedSets = [...sets];
@@ -126,17 +150,16 @@ const FreeWorkout: React.FC = () => {
             };
             setSets(updatedSets);
             setEditingIndex(null);
+            setSelectedExercise('');
             setWeight('');
             setReps('');
         }
     };
 
-    // Delete a set
     const handleDeleteSet = (index: number) => {
         setSets(sets.filter((_, i) => i !== index));
     };
 
-    // Save workout and sets to Supabase
     const handleEndWorkout = async () => {
         if (!workoutName.trim()) {
             alert('Please enter a workout name.');
@@ -188,10 +211,8 @@ const FreeWorkout: React.FC = () => {
         }
     };
 
-    // Confirmation and navigation for Back button
     const handleBackButton = () => {
         const confirmLeave = window.confirm("Do you want to save your progress before leaving?");
-
         if (confirmLeave) {
             localStorage.setItem('workoutName', workoutName);
             localStorage.setItem('sets', JSON.stringify(sets));
@@ -201,7 +222,6 @@ const FreeWorkout: React.FC = () => {
             localStorage.removeItem('sets');
             alert('Your progress has been discarded.');
         }
-
         navigate('/workouthome');
     };
 
@@ -217,16 +237,19 @@ const FreeWorkout: React.FC = () => {
                 className="workout-name-input"
             />
 
-            <select
+            <input
+                type="text"
+                list="exercise-options"
+                placeholder="Enter or select an exercise"
                 value={selectedExercise}
                 onChange={(e) => setSelectedExercise(e.target.value)}
                 className="exercise-dropdown"
-            >
-                <option value="">Pick exercise</option>
+            />
+            <datalist id="exercise-options">
                 {exercises.map((exercise, index) => (
-                    <option key={index} value={exercise}>{exercise}</option>
+                    <option key={index} value={exercise} />
                 ))}
-            </select>
+            </datalist>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <input
@@ -245,6 +268,8 @@ const FreeWorkout: React.FC = () => {
                     {editingIndex !== null ? "Save Edit" : "Add Set"}
                 </button>
             </div>
+
+            {error && <p className="error-message">{error}</p>}
 
             <div className="set-list-container">
                 <ul className="set-list">
