@@ -6,3 +6,8 @@ npm install @supabase/supabase-js
 
 Install axios to make API requests:
 npm install axios
+
+Install toast:
+npm install react-toastify
+npm install --save-dev @types/react-toastify
+
