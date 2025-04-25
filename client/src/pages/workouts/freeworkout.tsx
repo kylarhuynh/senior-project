@@ -14,23 +14,22 @@ type SetEntry = {
 
 const normalizeExerciseName = (name: string) => {
     return name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]/gi, '') // removes punctuation AND spaces
-      .replace(/s$/, '');         // optional: remove plural 's'
-  };
-  
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]/gi, '')
+        .replace(/s$/, '');
+};
 
 const FreeWorkout: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const [workoutName, setWorkoutName] = useState<string>('');
-    const [selectedExercise, setSelectedExercise] = useState<string>('');
-    const [weight, setWeight] = useState<string>('');
-    const [reps, setReps] = useState<string>('');
+    const [workoutName, setWorkoutName] = useState('');
+    const [selectedExercise, setSelectedExercise] = useState('');
+    const [weight, setWeight] = useState('');
+    const [reps, setReps] = useState('');
     const [sets, setSets] = useState<SetEntry[]>([]);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
-    const [error, setError] = useState<string>('');
+    const [error, setError] = useState('');
     const [exercises, setExercises] = useState<string[]>([]);
 
     const hasRestoredSets = useRef(false);
@@ -42,11 +41,8 @@ const FreeWorkout: React.FC = () => {
                 .select('exercise_name')
                 .order('exercise_name');
 
-            if (error) {
-                console.error("Failed to fetch exercises:", error);
-            } else {
-                const names = data.map((ex: any) => ex.exercise_name);
-                setExercises(names);
+            if (!error && data) {
+                setExercises(data.map((ex: any) => ex.exercise_name));
             }
         };
 
@@ -85,6 +81,40 @@ const FreeWorkout: React.FC = () => {
         localStorage.setItem('sets', JSON.stringify(sets));
     }, [workoutName, sets]);
 
+    useEffect(() => {
+        const fetchLastSet = async () => {
+            setWeight('');
+            setReps('');
+
+            if (!selectedExercise.trim()) return;
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('completed_sets')
+                .select('weight, reps, completed_workout:completed_workouts(user_id)')
+                .eq('exercise_name', selectedExercise)
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (!error && Array.isArray(data)) {
+                const lastMatch = (data as any[]).find((d) =>
+                    Array.isArray(d.completed_workout)
+                        ? d.completed_workout.some((cw) => cw.user_id === user.id)
+                        : d.completed_workout?.user_id === user.id
+                );
+
+                if (lastMatch) {
+                    setWeight(lastMatch.weight.toString());
+                    setReps(lastMatch.reps.toString());
+                }
+            }
+        };
+
+        fetchLastSet();
+    }, [selectedExercise]);
+
     const handleAddSet = async () => {
         if (selectedExercise && weight && reps) {
             const normalizedName = normalizeExerciseName(selectedExercise);
@@ -99,10 +129,24 @@ const FreeWorkout: React.FC = () => {
                 reps: parseInt(reps)
             };
 
+            // Check for personal best
+            const previousSets = await supabase
+                .from('completed_sets')
+                .select('weight, reps')
+                .eq('exercise_name', newSet.exercise)
+                .order('created_at', { ascending: false });
+
+            if (previousSets.data && Array.isArray(previousSets.data)) {
+                const isWeightPR = previousSets.data.every(s => newSet.weight > s.weight);
+                const isRepsPR = previousSets.data
+                    .filter(s => s.weight === newSet.weight)
+                    .every(s => newSet.reps > s.reps);
+
+                if (isWeightPR) alert('🎉 New personal record: highest weight!');
+                else if (isRepsPR) alert('🔥 New personal record: most reps at this weight!');
+            }
+
             setSets([...sets, newSet]);
-            setSelectedExercise('');
-            setWeight('');
-            setReps('');
             setEditingIndex(null);
             setError('');
 
@@ -112,18 +156,9 @@ const FreeWorkout: React.FC = () => {
                     .select()
                     .ilike('exercise_name', `%${normalizedName}%`);
 
-                if (lookupError) {
-                    console.error("Error looking up exercise:", lookupError);
-                } else if (!existing || existing.length === 0) {
-                    const { error: insertError } = await supabase
-                        .from('exercises')
-                        .insert([{ exercise_name: selectedExercise }]);
-
-                    if (insertError && insertError.code !== '23505') {
-                        console.error("Failed to insert new exercise:", insertError);
-                    } else {
-                        setExercises(prev => [...prev, selectedExercise]);
-                    }
+                if (!existing || existing.length === 0) {
+                    await supabase.from('exercises').insert([{ exercise_name: selectedExercise }]);
+                    setExercises(prev => [...prev, selectedExercise]);
                 }
             }
         } else {
@@ -161,31 +196,18 @@ const FreeWorkout: React.FC = () => {
     };
 
     const handleEndWorkout = async () => {
-        if (!workoutName.trim()) {
-            alert('Please enter a workout name.');
-            return;
-        }
-        if (sets.length === 0) {
-            alert('Please add at least one set.');
-            return;
-        }
+        if (!workoutName.trim()) return alert('Please enter a workout name.');
+        if (sets.length === 0) return alert('Please add at least one set.');
 
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            alert('User not logged in.');
-            return;
-        }
+        if (!user) return alert('User not logged in.');
 
         const { data, error } = await supabase
             .from('completed_workouts')
             .insert([{ user_id: user.id, workout_name: workoutName }])
             .select();
 
-        if (error) {
-            console.error("Error saving workout:", error);
-            alert('Failed to save workout.');
-            return;
-        }
+        if (error) return alert('Failed to save workout.');
 
         const completedWorkoutId = data[0].id;
         const setsData = sets.map((set, index) => ({
@@ -201,7 +223,6 @@ const FreeWorkout: React.FC = () => {
             .insert(setsData);
 
         if (setsError) {
-            console.error("Error saving sets:", setsError);
             alert('Failed to save sets.');
         } else {
             alert('Workout saved successfully!');
