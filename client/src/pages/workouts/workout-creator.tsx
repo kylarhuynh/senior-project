@@ -123,24 +123,51 @@ const WorkoutCreator: React.FC = () => {
             const matchedExercise = exercises.find(
                 (e) => normalizeExerciseName(e) === normalizedName
             );
-
+    
+            const exerciseName = matchedExercise || selectedExercise;
             const newSet: SetEntry = {
                 id: Date.now(),
-                exercise: matchedExercise || selectedExercise,
+                exercise: exerciseName,
                 weight: parseFloat(weight),
                 reps: parseInt(reps)
             };
-
-            setSets([...sets, newSet]);
+    
+            // Get past sets from database
+            const { data: pastData, error: fetchError } = await supabase
+                .from('completed_sets')
+                .select('weight, reps')
+                .eq('exercise_name', exerciseName)
+                .order('created_at', { ascending: false });
+    
+            if (fetchError) console.error('Error fetching sets:', fetchError);
+    
+            // Combine past and current session sets
+            const currentSessionSets = sets.filter(s => normalizeExerciseName(s.exercise) === normalizedName);
+            const allSets = [...(pastData || []), ...currentSessionSets];
+    
+            // Check for PR
+            const isWeightPR = allSets.every(s => newSet.weight > s.weight);
+            const isRepsPR = allSets
+                .filter(s => s.weight === newSet.weight)
+                .every(s => newSet.reps > s.reps);
+    
+            if (isWeightPR) {
+                alert('🎉 New personal record: highest weight!');
+            } else if (isRepsPR) {
+                alert('🔥 New personal record: most reps at this weight!');
+            }
+    
+            setSets(prev => [...prev, newSet]);
             setWeight('');
             setReps('');
             setError('');
-
+    
+            // Insert new exercise if not in list
             if (!matchedExercise) {
                 const { error: insertError } = await supabase
                     .from('exercises')
                     .insert([{ exercise_name: selectedExercise }]);
-
+    
                 if (!insertError || insertError.code === '23505') {
                     setExercises(prev => [...prev, selectedExercise]);
                 }
@@ -229,24 +256,24 @@ const WorkoutCreator: React.FC = () => {
         <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
             <div className="content-card">
                 {/* Mode Toggle */}
-                <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    gap: '12px', 
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '12px',
                     marginBottom: '24px',
                     padding: '8px',
                     background: 'var(--background-color)',
                     borderRadius: '8px'
                 }}>
-                    <button 
-                        className={!isTemplate ? "primary-button" : "secondary-button"} 
+                    <button
+                        className={!isTemplate ? "primary-button" : "secondary-button"}
                         onClick={() => setIsTemplate(false)}
                         style={{ flex: 1, maxWidth: '200px' }}
                     >
                         Record Workout
                     </button>
-                    <button 
-                        className={isTemplate ? "primary-button" : "secondary-button"} 
+                    <button
+                        className={isTemplate ? "primary-button" : "secondary-button"}
                         onClick={() => setIsTemplate(true)}
                         style={{ flex: 1, maxWidth: '200px' }}
                     >
@@ -282,7 +309,7 @@ const WorkoutCreator: React.FC = () => {
                                 placeholder="Select or type an exercise"
                                 value={selectedExercise}
                                 onChange={(e) => setSelectedExercise(e.target.value)}
-                                style={{ 
+                                style={{
                                     width: '100%',
                                     padding: '12px',
                                     borderRadius: '4px',
@@ -310,9 +337,9 @@ const WorkoutCreator: React.FC = () => {
                                 placeholder="Weight (lbs)"
                                 value={weight}
                                 onChange={(e) => setWeight(e.target.value)}
-                                style={{ 
-                                    padding: '12px', 
-                                    borderRadius: '4px', 
+                                style={{
+                                    padding: '12px',
+                                    borderRadius: '4px',
                                     border: '1px solid var(--border-color)',
                                     fontSize: '16px'
                                 }}
@@ -322,16 +349,16 @@ const WorkoutCreator: React.FC = () => {
                                 placeholder="Reps"
                                 value={reps}
                                 onChange={(e) => setReps(e.target.value)}
-                                style={{ 
-                                    padding: '12px', 
-                                    borderRadius: '4px', 
+                                style={{
+                                    padding: '12px',
+                                    borderRadius: '4px',
                                     border: '1px solid var(--border-color)',
                                     fontSize: '16px'
                                 }}
                             />
                         </div>
-                        <button 
-                            className="primary-button" 
+                        <button
+                            className="primary-button"
                             onClick={handleAddSet}
                             style={{ padding: '12px' }}
                         >
@@ -341,9 +368,9 @@ const WorkoutCreator: React.FC = () => {
                 </div>
 
                 {error && (
-                    <div style={{ 
-                        color: '#e74c3c', 
-                        marginBottom: '20px', 
+                    <div style={{
+                        color: '#e74c3c',
+                        marginBottom: '20px',
                         fontSize: '14px',
                         padding: '12px',
                         background: 'rgba(231, 76, 60, 0.1)',
@@ -359,13 +386,13 @@ const WorkoutCreator: React.FC = () => {
                         <h3 className="section-header" style={{ fontSize: '18px', marginBottom: '12px' }}>
                             Sets ({sets.length})
                         </h3>
-                        <div style={{ 
+                        <div style={{
                             border: '1px solid var(--border-color)',
                             borderRadius: '4px',
                             overflow: 'hidden'
                         }}>
                             {sets.map((set, index) => (
-                                <div 
+                                <div
                                     key={set.id}
                                     style={{
                                         display: 'grid',
@@ -381,7 +408,7 @@ const WorkoutCreator: React.FC = () => {
                                     <span style={{ fontWeight: 500 }}>{set.exercise}</span>
                                     <span style={{ color: 'var(--text-secondary)' }}>{set.weight} lbs</span>
                                     <span style={{ color: 'var(--text-secondary)' }}>{set.reps} reps</span>
-                                    <button 
+                                    <button
                                         onClick={() => handleDeleteSet(index)}
                                         style={{
                                             padding: '4px 8px',
@@ -402,13 +429,13 @@ const WorkoutCreator: React.FC = () => {
 
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                    <button 
+                    <button
                         className="secondary-button"
                         onClick={() => navigate('/workouthome')}
                     >
                         Cancel
                     </button>
-                    <button 
+                    <button
                         className="primary-button"
                         onClick={handleSave}
                     >
