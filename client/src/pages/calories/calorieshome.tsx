@@ -215,71 +215,357 @@ const CaloriesHome: React.FC = () => {
     };
 
     return (
-        <div className="calories-container">
-            <h1>Calorie Tracker</h1>
-            {calorieGoal !== null && (
-                <div className="fixed-top-right">
-                    <button className="edit-goal-btn" onClick={() => setShowEditGoalModal(true)}>
-                        Edit Calorie Goal
-                    </button>
+        <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
+            {/* Daily Goal Section */}
+            <div className="content-card" style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text-primary)' }}>
+                        Daily Calorie Goal
+                    </h2>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button 
+                            className="secondary-button"
+                            onClick={() => navigate('/calorieshistory')}
+                            style={{ padding: '8px 16px' }}
+                        >
+                            History
+                        </button>
+                        <button 
+                            className="primary-button"
+                            onClick={() => setShowEditGoalModal(true)}
+                            style={{ padding: '8px 16px' }}
+                        >
+                            Edit Goal
+                        </button>
+                    </div>
                 </div>
-            )}
+                
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    padding: '16px',
+                    backgroundColor: 'var(--background-color)',
+                    borderRadius: '8px'
+                }}>
+                    <div>
+                        <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Current Goal</div>
+                        <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{calorieGoal || '---'} cal</div>
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Today's Total</div>
+                        <div style={{ 
+                            fontSize: '24px', 
+                            fontWeight: 'bold',
+                            color: totalCalories > (calorieGoal || 0) ? '#e74c3c' : 'inherit'
+                        }}>
+                            {totalCalories} cal
+                        </div>
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Remaining</div>
+                        <div style={{ 
+                            fontSize: '24px', 
+                            fontWeight: 'bold',
+                            color: (calorieGoal || 0) - totalCalories < 0 ? '#e74c3c' : '#2ecc71'
+                        }}>
+                            {calorieGoal ? calorieGoal - totalCalories : '---'} cal
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            {calorieGoal === null ? (
-                <div className="goal-setup">
-                    <p>You haven't set a daily calorie goal yet.</p>
-                    <input type="number" placeholder="Enter daily calorie goal" value={newCalorieGoal} onChange={(e) => setNewCalorieGoal(e.target.value)} />
-                    <button onClick={handleSetCalorieGoal}>Set Goal</button>
-                </div>
-            ) : (
-                <div className="calorie-overview">
-                    <h2>Total: {totalCalories} cal</h2>
-                    <h3>Remaining: {calorieGoal - totalCalories} cal</h3>
-                </div>
-            )}
-
-            {calorieGoal !== null && (
-                <>
-                    <div className="food-entry">
-                        <input type="text" placeholder="Food Name" value={foodName} onChange={(e) => setFoodName(e.target.value)} />
-                        <select value={measurementType} onChange={(e) => setMeasurementType(e.target.value)}>
+            {/* Add Entry Section */}
+            <div className="content-card" style={{ marginBottom: '24px' }}>
+                <h2 style={{ marginBottom: '16px', fontSize: '1.5rem', color: 'var(--text-primary)' }}>
+                    Add Food Entry
+                </h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                        <input
+                            type="text"
+                            placeholder="Search food name..."
+                            value={foodName}
+                            onChange={(e) => setFoodName(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '4px',
+                                fontSize: '16px',
+                                boxSizing: 'border-box'
+                            }}
+                        />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <input
+                            type="number"
+                            placeholder="Amount"
+                            value={measurementAmount}
+                            onChange={(e) => setMeasurementAmount(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '4px',
+                                fontSize: '16px',
+                                boxSizing: 'border-box'
+                            }}
+                        />
+                        <select
+                            value={measurementType}
+                            onChange={(e) => setMeasurementType(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '4px',
+                                fontSize: '16px',
+                                backgroundColor: 'white',
+                                boxSizing: 'border-box'
+                            }}
+                        >
                             <option value="serving">Serving</option>
                             <option value="grams">Grams</option>
                             <option value="ounces">Ounces</option>
                         </select>
-                        <input type="number" min="1" placeholder="Amount" value={measurementAmount} onChange={(e) => setMeasurementAmount(e.target.value)} />
-                        <input type="number" placeholder="Calories" value={loadingCalories ? '' : calories} onChange={(e) => setCalories(e.target.value)} />
-                        <button onClick={handleAddEntry}>Add</button>
                     </div>
+                    <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '12px',
+                        padding: '12px',
+                        backgroundColor: 'var(--background-color)',
+                        borderRadius: '4px'
+                    }}>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Calories</div>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                                {loadingCalories ? 'Calculating...' : `${calories || '0'} cal`}
+                            </div>
+                        </div>
+                        <button
+                            className="primary-button"
+                            onClick={handleAddEntry}
+                            disabled={loadingCalories || !foodName || !calories}
+                            style={{ padding: '12px 24px' }}
+                        >
+                            Add Entry
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-                    <h3>Today's Meals</h3>
-                    <ul>
-                        {entries.map(entry => (
-                            <li key={entry.id}>
-                                {editingEntry && editingEntry.id === entry.id ? (
-                                    <>
-                                        <input type="text" value={updatedFoodName} onChange={(e) => setUpdatedFoodName(e.target.value)} />
-                                        <input type="number" value={updatedCalories} onChange={(e) => setUpdatedCalories(e.target.value)} />
-                                        <button onClick={handleSaveEdit}>Save</button>
-                                        <button onClick={() => setEditingEntry(null)}>Cancel</button>
-                                    </>
-                                ) : (
-                                    <>
-                                        {entry.food_name} - {entry.calories} cal
-                                        <button onClick={() => handleEditEntry(entry)}>Edit</button>
-                                        <button onClick={() => handleDeleteEntry(entry.id, entry.calories)}>Delete</button>
-                                    </>
-                                )}
-                            </li>
+            {/* Today's Entries Section */}
+            <div className="content-card">
+                <h2 style={{ marginBottom: '16px', fontSize: '1.5rem', color: 'var(--text-primary)' }}>
+                    Today's Entries
+                </h2>
+                {loading ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+                        Loading entries...
+                    </div>
+                ) : entries.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>
+                        No entries yet today
+                    </div>
+                ) : (
+                    <div style={{ 
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '4px',
+                        overflow: 'hidden'
+                    }}>
+                        {entries.map((entry, index) => (
+                            <div
+                                key={entry.id}
+                                style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr auto auto',
+                                    gap: '12px',
+                                    padding: '12px',
+                                    alignItems: 'center',
+                                    borderBottom: index < entries.length - 1 ? '1px solid var(--border-color)' : 'none',
+                                    background: index % 2 === 0 ? 'var(--background-color)' : 'white'
+                                }}
+                            >
+                                <div style={{ fontWeight: 500 }}>{entry.food_name}</div>
+                                <div style={{ color: 'var(--text-secondary)' }}>{entry.calories} cal</div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button
+                                        onClick={() => handleEditEntry(entry)}
+                                        style={{
+                                            padding: '4px 8px',
+                                            color: 'var(--text-secondary)',
+                                            border: 'none',
+                                            background: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteEntry(entry.id, entry.calories)}
+                                        style={{
+                                            padding: '4px 8px',
+                                            color: '#e74c3c',
+                                            border: 'none',
+                                            background: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
                         ))}
-                    </ul>
-                    <button onClick={() => navigate('/calorie-history')}>View Previous Days</button>
-                </>
+                    </div>
+                )}
+            </div>
+
+            {/* Edit Goal Modal */}
+            {showEditGoalModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        padding: '24px',
+                        borderRadius: '8px',
+                        width: '90%',
+                        maxWidth: '400px'
+                    }}>
+                        <h3 style={{ marginBottom: '16px' }}>Set Daily Calorie Goal</h3>
+                        <input
+                            type="number"
+                            placeholder="Enter calorie goal"
+                            value={newCalorieGoal}
+                            onChange={(e) => setNewCalorieGoal(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '4px',
+                                fontSize: '16px',
+                                marginBottom: '16px',
+                                boxSizing: 'border-box'
+                            }}
+                        />
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                            <button
+                                className="secondary-button"
+                                onClick={() => setShowEditGoalModal(false)}
+                                style={{ padding: '8px 16px' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="primary-button"
+                                onClick={handleSetCalorieGoal}
+                                style={{ padding: '8px 16px' }}
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
-            <div className="fixed-bottom-left">
-                <button onClick={handleBackButton}>Home</button>
-            </div>
+            {/* Edit Entry Modal */}
+            {editingEntry && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        padding: '24px',
+                        borderRadius: '8px',
+                        width: '90%',
+                        maxWidth: '400px'
+                    }}>
+                        <h3 style={{ marginBottom: '16px' }}>Edit Entry</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <input
+                                type="text"
+                                placeholder="Food name"
+                                value={updatedFoodName}
+                                onChange={(e) => setUpdatedFoodName(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '4px',
+                                    fontSize: '16px',
+                                    boxSizing: 'border-box'
+                                }}
+                            />
+                            <input
+                                type="number"
+                                placeholder="Calories"
+                                value={updatedCalories}
+                                onChange={(e) => setUpdatedCalories(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '4px',
+                                    fontSize: '16px',
+                                    boxSizing: 'border-box'
+                                }}
+                            />
+                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                <button
+                                    className="secondary-button"
+                                    onClick={() => setEditingEntry(null)}
+                                    style={{ padding: '8px 16px' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    className="primary-button"
+                                    onClick={handleSaveEdit}
+                                    style={{ padding: '8px 16px' }}
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {error && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '24px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#e74c3c',
+                    color: 'white',
+                    padding: '12px 24px',
+                    borderRadius: '4px',
+                    zIndex: 1000
+                }}>
+                    {error}
+                </div>
+            )}
         </div>
     );
 };
