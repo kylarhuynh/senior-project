@@ -38,7 +38,7 @@ function App() {
           <Route path="/activity-feed" element={<ActivityFeed />} />
           <Route path="/calorieshome" element={<CaloriesHome />} />
           <Route path="/calorieshistory" element={<CaloriesHistory />} />
-          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
         </Route>
 
         <Route path="/signup" element={<SignUpPage />} />
