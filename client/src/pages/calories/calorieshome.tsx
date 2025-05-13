@@ -198,69 +198,196 @@ const CaloriesHome: React.FC = () => {
     };
 
     return (
-        <div className="calories-container">
-            <h1>Calorie Tracker</h1>
+        <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
+            {/* Calorie Goal Section */}
+            <div className="content-card">
+                <h3 className="section-header">Daily Calorie Goal</h3>
+                {calorieGoal === null ? (
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <input
+                            type="number"
+                            placeholder="Enter daily calorie goal"
+                            value={newCalorieGoal}
+                            onChange={(e) => setNewCalorieGoal(e.target.value)}
+                            style={{
+                                padding: '8px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border-color)',
+                                flex: 1
+                            }}
+                        />
+                        <button className="primary-button" onClick={handleSetCalorieGoal}>Set Goal</button>
+                    </div>
+                ) : (
+                    <div>
+                        <div className="stat-display" style={{ marginBottom: '16px' }}>
+                            <span style={{ fontSize: '32px', color: 'var(--primary-color)' }}>
+                                {calorieGoal - totalCalories}
+                            </span>
+                            <span>calories remaining</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div className="stat-display">
+                                    <span>Goal: {calorieGoal} cal</span>
+                                </div>
+                                <div className="stat-display">
+                                    <span>Consumed: {totalCalories} cal</span>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button 
+                                    className="secondary-button"
+                                    onClick={() => navigate('/calorieshistory')}
+                                >
+                                    History
+                                </button>
+                                <button 
+                                    className="secondary-button"
+                                    onClick={() => setShowEditGoalModal(true)}
+                                >
+                                    Edit Goal
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
 
+            {/* Add Food Entry Section */}
             {calorieGoal !== null && (
-                <div className="fixed-top-right">
-                    <button className="edit-goal-btn" onClick={() => setShowEditGoalModal(true)}>
-                        Edit Calorie Goal
-                    </button>
-                </div>
-            )}
-
-            {calorieGoal === null ? (
-                <div className="goal-setup">
-                    <p>You haven't set a daily calorie goal yet.</p>
-                    <input
-                        type="number"
-                        placeholder="Enter daily calorie goal"
-                        value={newCalorieGoal}
-                        onChange={(e) => setNewCalorieGoal(e.target.value)}
-                    />
-                    <button onClick={handleSetCalorieGoal}>Set Goal</button>
-                </div>
-            ) : (
-                <div className="calorie-overview">
-                    <h2>Total: {totalCalories} cal</h2>
-                    <h3>Remaining: {calorieGoal - totalCalories} cal</h3>
-                </div>
-            )}
-
-            {calorieGoal !== null && (
-                <>
-                    <div className="food-entry">
+                <div className="content-card" style={{ marginTop: '24px' }}>
+                    <h3 className="section-header">Add Food Entry</h3>
+                    <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                        gap: '12px', 
+                        marginBottom: '20px' 
+                    }}>
                         <input
                             type="text"
                             placeholder="Food Name"
                             value={foodName}
                             onChange={(e) => setFoodName(e.target.value)}
+                            style={{
+                                padding: '8px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border-color)'
+                            }}
                         />
                         <input
                             type="number"
                             placeholder="Calories"
-                            value={loadingCalories ? "" : calories} // ✅ No "Fetching..." text
+                            value={loadingCalories ? "Loading..." : calories}
                             onChange={(e) => setCalories(e.target.value)}
+                            style={{
+                                padding: '8px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border-color)',
+                                minWidth: '120px'
+                            }}
                         />
-                        <button onClick={handleAddEntry}>Add</button>
+                        <button className="primary-button" onClick={handleAddEntry}>Add</button>
                     </div>
 
-                    <h3>Today's Meals</h3>
-                    {entries.map(entry => (
-                        <li key={entry.id}>
-                            {entry.food_name} - {entry.calories} cal
-                            <button onClick={() => handleDeleteEntry(entry.id, entry.calories)}>Delete</button>
-                        </li>
-                    ))}
-                    <button onClick={() => navigate('/calorie-history')}>View Previous Days</button>
-                </>
-    )
-}
+                    {error && (
+                        <div style={{ color: '#e74c3c', marginBottom: '16px', fontSize: '14px' }}>
+                            {error}
+                        </div>
+                    )}
 
-<div className="fixed-bottom-left">
-    <button onClick={handleBackButton}>Home</button>
-</div>
-        </div >
+                    <h3 className="section-header">Today's Entries</h3>
+                    {entries.length === 0 ? (
+                        <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px' }}>
+                            No entries yet today. Add your first meal above.
+                        </p>
+                    ) : (
+                        <div>
+                            {entries.map(entry => (
+                                <div 
+                                    key={entry.id}
+                                    style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'minmax(150px, 1fr) auto',
+                                        gap: '12px',
+                                        padding: '12px 0',
+                                        borderBottom: '1px solid var(--border-color)',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    <div style={{ minWidth: '120px' }}>
+                                        <div style={{ fontWeight: 500 }}>{entry.food_name}</div>
+                                        <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                                            {entry.calories} calories
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDeleteEntry(entry.id, entry.calories)}
+                                        style={{
+                                            padding: '4px 8px',
+                                            color: '#e74c3c',
+                                            border: 'none',
+                                            background: 'none',
+                                            cursor: 'pointer',
+                                            minWidth: '60px'
+                                        }}
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Edit Goal Modal */}
+            {showEditGoalModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3 className="section-header">Edit Calorie Goal</h3>
+                        <div style={{ marginBottom: '20px' }}>
+                            <input
+                                type="number"
+                                placeholder="Enter new calorie goal"
+                                value={newCalorieGoal}
+                                onChange={(e) => setNewCalorieGoal(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px',
+                                    borderRadius: '4px',
+                                    border: '1px solid var(--border-color)',
+                                    marginBottom: '12px'
+                                }}
+                            />
+                            {error && (
+                                <div style={{ color: '#e74c3c', fontSize: '14px' }}>
+                                    {error}
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                            <button 
+                                className="secondary-button"
+                                onClick={() => {
+                                    setShowEditGoalModal(false);
+                                    setNewCalorieGoal('');
+                                    setError('');
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                className="primary-button"
+                                onClick={handleSetCalorieGoal}
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 

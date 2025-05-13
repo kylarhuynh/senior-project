@@ -1,37 +1,47 @@
 import './App.css';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import LoginPage from './pages/login.tsx';  // Importing the LoginPage component
-import HomePage from './pages/home.tsx';    // Importing the HomePage component
+import Layout from './components/Layout.tsx';
+import Login from './pages/login.tsx';
+import Home from './pages/home.tsx';
 import WorkoutHome from './pages/workouts/workouthome.tsx';
+import WorkoutCreator from './pages/workouts/workout-creator.tsx';
+import Templates from './pages/workouts/templates.tsx';
+import ActivityFeed from './pages/workouts/activity-feed.tsx';
 import CaloriesHome from './pages/calories/calorieshome.tsx';
-import BuildWorkoutPage from './pages/workouts/buildworkout.tsx';
-import ViewPastPage from './pages/workouts/viewpastworkouts.tsx';
-import PremadeWorkoutsPage from './pages/workouts/premadeworkouts.tsx';
-import FreeWorkout from './pages/workouts/freeworkout.tsx';
+import CaloriesHistory from './pages/calories/calorieshistory.tsx';
 import SignUpPage from './pages/signup.tsx';
-import EditWorkoutPage from './pages/workouts/editworkout.tsx';
-import ViewWorkoutDetails from './pages/workouts/workoutdetails.tsx';
-import UsePremadeWorkout from './pages/workouts/usepremadeworkout.tsx';
-import CalorieHistory from './pages/calories/calorieshistory.tsx';
+
+/* Old workout pages moved to /pages/oldWorkouts:
+import BuildWorkoutPage from './pages/oldWorkouts/buildworkout.tsx';
+import ViewPastPage from './pages/oldWorkouts/viewpastworkouts.tsx';
+import PremadeWorkoutsPage from './pages/oldWorkouts/premadeworkouts.tsx';
+import FreeWorkout from './pages/oldWorkouts/freeworkout.tsx';
+import EditWorkoutPage from './pages/oldWorkouts/editworkout.tsx';
+import ViewWorkoutDetails from './pages/oldWorkouts/workoutdetails.tsx';
+import UsePremadeWorkout from './pages/oldWorkouts/usepremadeworkout.tsx';
+*/
 
 function App() {
   return (
-    <Router> 
+    <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} /> {/* Redirect from / to /login */}
-        <Route path="/login" element={<LoginPage />} />  {/* LoginPage route */}
-        <Route path="/signup" element={<SignUpPage />} />  {/* LoginPage route */}
-        <Route path="/home" element={<HomePage />} />  {/* HomePage route */}
-        <Route path="/workouthome" element={<WorkoutHome />} />  
-        <Route path="/calorieshome" element={<CaloriesHome />} />  
-        <Route path="/buildworkout" element={<BuildWorkoutPage />} />  
-        <Route path="/pastworkouts" element={<ViewPastPage />} />  
-        <Route path="/premadeworkouts" element={<PremadeWorkoutsPage />} />  
-        <Route path="/freeworkout" element={<FreeWorkout />} />  
-        <Route path="/edit-workout/:workoutId" element={<EditWorkoutPage />} />
-        <Route path="/view-workout/:workoutId" element={<ViewWorkoutDetails />} />
-        <Route path="/premade-workout/:workoutId" element={<UsePremadeWorkout />} />
-        <Route path="/calorie-history" element={<CalorieHistory />} />
+        {/* Login route outside of layout */}
+        <Route path="/login" element={<Login />} />
+
+        {/* All other routes wrapped in Layout */}
+        <Route element={<Layout />}>
+          <Route path="/home" element={<Home />} />
+          <Route path="/workouthome" element={<WorkoutHome />} />
+          <Route path="/workout-creator" element={<WorkoutCreator />} />
+          <Route path="/templates" element={<Templates />} />
+          <Route path="/activity-feed" element={<ActivityFeed />} />
+          <Route path="/calorieshome" element={<CaloriesHome />} />
+          <Route path="/calorieshistory" element={<CaloriesHistory />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+        </Route>
+
+        <Route path="/signup" element={<SignUpPage />} />
       </Routes>
     </Router>
   );

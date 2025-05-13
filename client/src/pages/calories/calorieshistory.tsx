@@ -141,84 +141,151 @@ const CalorieHistory: React.FC = () => {
     };
 
     return (
-        <div className="calorie-history-container">
-            <h1>Calorie History</h1>
+        <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
+            <div className="content-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                    <h3 className="section-header" style={{ margin: 0 }}>Calorie History</h3>
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        style={{
+                            padding: '8px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--border-color)'
+                        }}
+                    />
+                </div>
 
-            {/* Date Picker for Selecting a Date */}
-            <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="date-picker"
-            />
+                <div className="stat-display" style={{ marginBottom: '24px' }}>
+                    <span style={{ fontSize: '32px', color: 'var(--primary-color)' }}>
+                        {totalCalories}
+                    </span>
+                    <span>total calories</span>
+                </div>
 
-            {/* Display Calorie Summary */}
-            <div className="calorie-summary">
-                <h2>Total Calories: {totalCalories} cal</h2>
-            </div>
+                {/* Add New Entry */}
+                <div style={{ marginBottom: '24px' }}>
+                    <h3 className="section-header">Add Entry</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '12px' }}>
+                        <input
+                            type="text"
+                            placeholder="Food Name"
+                            value={newFoodName}
+                            onChange={(e) => setNewFoodName(e.target.value)}
+                            style={{
+                                padding: '8px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border-color)'
+                            }}
+                        />
+                        <input
+                            type="number"
+                            placeholder="Calories"
+                            value={newCalories}
+                            onChange={(e) => setNewCalories(e.target.value)}
+                            style={{
+                                padding: '8px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border-color)',
+                                width: '120px'
+                            }}
+                        />
+                        <button className="primary-button" onClick={handleAddEntry}>Add</button>
+                    </div>
+                </div>
 
-            {/* Add New Entry */}
-            <div className="add-entry-container">
-                <input
-                    type="text"
-                    placeholder="Food Name"
-                    value={newFoodName}
-                    onChange={(e) => setNewFoodName(e.target.value)}
-                    className="food-input"
-                />
-                <input
-                    type="number"
-                    placeholder="Calories"
-                    value={newCalories}
-                    onChange={(e) => setNewCalories(e.target.value)}
-                    className="calories-input"
-                />
-                <button onClick={handleAddEntry} className="add-entry-btn">Add</button>
-            </div>
-
-            {/* Food Entries for Selected Date */}
-            {loading ? (
-                <p>Loading entries...</p>
-            ) : (
-                <ul className="food-list">
-                    {entries.length === 0 ? (
-                        <p>No entries for this date.</p>
-                    ) : (
-                        entries.map(entry => (
-                            <li key={entry.id} className="food-entry-item">
+                {/* Food Entries List */}
+                <h3 className="section-header">Entries for {new Date(selectedDate).toLocaleDateString()}</h3>
+                {loading ? (
+                    <p style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>
+                        Loading entries...
+                    </p>
+                ) : entries.length === 0 ? (
+                    <p style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>
+                        No entries for this date.
+                    </p>
+                ) : (
+                    <div>
+                        {entries.map(entry => (
+                            <div 
+                                key={entry.id}
+                                style={{
+                                    padding: '12px 0',
+                                    borderBottom: '1px solid var(--border-color)'
+                                }}
+                            >
                                 {editingEntry && editingEntry.id === entry.id ? (
-                                    <div className="edit-entry-container">
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: '12px', alignItems: 'center' }}>
                                         <input
                                             type="text"
                                             value={updatedFoodName}
                                             onChange={(e) => setUpdatedFoodName(e.target.value)}
-                                            className="edit-food-input"
+                                            style={{
+                                                padding: '8px',
+                                                borderRadius: '4px',
+                                                border: '1px solid var(--border-color)'
+                                            }}
                                         />
                                         <input
                                             type="number"
                                             value={updatedCalories}
                                             onChange={(e) => setUpdatedCalories(e.target.value)}
-                                            className="edit-calories-input"
+                                            style={{
+                                                padding: '8px',
+                                                borderRadius: '4px',
+                                                border: '1px solid var(--border-color)',
+                                                width: '120px'
+                                            }}
                                         />
-                                        <button onClick={handleSaveEdit} className="save-edit-btn">Save</button>
-                                        <button onClick={() => setEditingEntry(null)} className="cancel-edit-btn">Cancel</button>
+                                        <button className="primary-button" onClick={handleSaveEdit}>Save</button>
+                                        <button 
+                                            className="secondary-button"
+                                            onClick={() => setEditingEntry(null)}
+                                        >
+                                            Cancel
+                                        </button>
                                     </div>
                                 ) : (
-                                    <div className="entry-display">
-                                        {entry.food_name} - {entry.calories} cal
-                                        <button onClick={() => handleEditEntry(entry)} >Edit</button>
-                                        <button onClick={() => handleDeleteEntry(entry.id, entry.calories)}>Delete</button>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div>
+                                            <div style={{ fontWeight: 500 }}>{entry.food_name}</div>
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                                                {entry.calories} calories
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                            <button
+                                                onClick={() => handleEditEntry(entry)}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    color: 'var(--text-secondary)',
+                                                    border: 'none',
+                                                    background: 'none',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteEntry(entry.id, entry.calories)}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    color: '#e74c3c',
+                                                    border: 'none',
+                                                    background: 'none',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
-                            </li>
-                        ))
-                    )}
-                </ul>
-            )}
-
-            {/* Back Button */}
-            <div className="fixed-bottom-left">
-                <button onClick={() => navigate('/calorieshome')}>Back</button>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
