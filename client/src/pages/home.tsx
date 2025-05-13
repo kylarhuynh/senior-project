@@ -9,6 +9,7 @@ const HomePage: React.FC = () => {
     const [totalCaloriesConsumed, setTotalCaloriesConsumed] = useState<number>(0);
     const [remainingCalories, setRemainingCalories] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
+    const [userName, setUserName] = useState<string>('');
 
     useEffect(() => {
         fetchUserData();
@@ -63,54 +64,62 @@ const HomePage: React.FC = () => {
     };
 
     return (
-        <div className="centeritems">
-            {/* Center content horizontally and vertically */}
-            <h1 className="heading">Home Page</h1>
-
-            {/* Starter Box for Workouts and Calories */}
-            <div style={{
-                backgroundColor: '#f3f4f6',
-                padding: '2rem',
-                borderRadius: '0.5rem',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            }}>
-                <h2>Today's Overview</h2>
-
-                {/* List of Workouts */}
-                <div>
-                    <h3>Workouts for Today</h3>
-                    <ul>
-                        <li>Push-ups - 3 sets of 15 reps</li>
-                        <li>Squats - 3 sets of 20 reps</li>
-                        <li>Jogging - 30 minutes</li>
-                    </ul>
-                </div>
-
-                {/* Calories Left */}
-                <div>
-                    <h3>Calories Left</h3>
+        <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
+            {/* Quick Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+                <div className="content-card">
+                    <h3 className="section-header">Today's Calories</h3>
                     {loading ? (
                         <p>Loading...</p>
                     ) : calorieGoal !== null ? (
-                        <p>You have <strong>{remainingCalories}</strong> calories left for the day!</p>
+                        <div>
+                            <div className="stat-display">
+                                <span style={{ fontSize: '32px', color: 'var(--primary-color)' }}>{remainingCalories}</span>
+                                <span>calories remaining</span>
+                            </div>
+                            <div style={{ marginTop: '12px' }}>
+                                <div className="stat-display">
+                                    <span>Goal: {calorieGoal}</span>
+                                </div>
+                                <div className="stat-display">
+                                    <span>Consumed: {totalCaloriesConsumed}</span>
+                                </div>
+                            </div>
+                        </div>
                     ) : (
-                        <p>No calorie goal set. <button onClick={() => navigate('/calorieshome')}>Set Goal</button></p>
+                        <button className="primary-button" onClick={() => navigate('/calorieshome')}>Set Goal</button>
                     )}
+                </div>
+
+                <div className="content-card">
+                    <h3 className="section-header">Quick Actions</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <button className="primary-button" onClick={() => navigate('/workout-creator')}>
+                            Record Workout
+                        </button>
+                        <button className="secondary-button" onClick={() => navigate('/calorieshome')}>
+                            Log Meal
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <button onClick={() => navigate('/calorieshome')}>
-                Input Calories
-            </button>
-            
-            <button onClick={() => navigate('/workouthome')}>
-                Workout
-            </button>
-
-            <div className="fixed-bottom-left">
-                <button onClick={() => navigate('/login')}>
-                    Logout
-                </button>
+            {/* Recent Activity Feed */}
+            <div className="content-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h3 className="section-header" style={{ margin: 0 }}>Recent Activity</h3>
+                    <button className="secondary-button" onClick={() => navigate('/activity-feed')}>
+                        View All
+                    </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)' }}>
+                        <div style={{ fontWeight: 600, marginBottom: '8px' }}>Your Workout History</div>
+                        <p style={{ color: 'var(--text-secondary)' }}>
+                            Track your progress and view past workouts
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     );
