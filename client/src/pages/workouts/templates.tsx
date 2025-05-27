@@ -6,11 +6,7 @@ import '../../styles.css';
 type WorkoutTemplate = {
     id: string;
     name: string;
-    exercises: {
-        exercise: string;
-        weight: number;
-        reps: number;
-    }[];
+    exercises: string[];
     created_at: string;
 };
 
@@ -42,11 +38,13 @@ const Templates: React.FC = () => {
             .order('created_at', { ascending: false });
 
         if (error) {
+            console.error('Error fetching templates:', error);
             setError('Failed to load templates');
             setLoading(false);
             return;
         }
 
+        console.log('Fetched templates:', data);
         setTemplates(data);
         setLoading(false);
     };
@@ -56,7 +54,11 @@ const Templates: React.FC = () => {
             state: { 
                 template: {
                     name: template.name,
-                    sets: template.exercises
+                    exercises: template.exercises.map(exercise => ({
+                        exercise: exercise,
+                        weight: 0,  // Default weight
+                        reps: 0     // Default reps
+                    }))
                 }
             }
         });
@@ -72,6 +74,7 @@ const Templates: React.FC = () => {
             .eq('id', templateId);
 
         if (error) {
+            console.error('Error deleting template:', error);
             setError('Failed to delete template');
         } else {
             setTemplates(templates.filter(t => t.id !== templateId));
@@ -138,15 +141,13 @@ const Templates: React.FC = () => {
                                     key={index}
                                     style={{
                                         display: 'grid',
-                                        gridTemplateColumns: '1fr auto auto',
+                                        gridTemplateColumns: '1fr',
                                         gap: '12px',
                                         padding: '8px 0',
                                         borderBottom: index < template.exercises.length - 1 ? '1px solid var(--border-color)' : 'none'
                                     }}
                                 >
-                                    <span style={{ fontWeight: 500 }}>{exercise.exercise}</span>
-                                    <span>{exercise.weight} lbs</span>
-                                    <span>{exercise.reps} reps</span>
+                                    <span style={{ fontWeight: 500 }}>{exercise}</span>
                                 </div>
                             ))}
                         </div>

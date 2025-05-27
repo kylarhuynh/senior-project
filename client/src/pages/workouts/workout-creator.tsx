@@ -10,6 +10,11 @@ type SetEntry = {
     reps: number;
 };
 
+type TemplateEntry = {
+    id: number;
+    exercise: string;
+};
+
 // Common exercises grouped by category
 const COMMON_EXERCISES = {
     "Chest": [
@@ -60,6 +65,10 @@ const normalizeExerciseName = (name: string) => {
     return name.toLowerCase().trim().replace(/[^a-z0-9]/gi, '').replace(/s$/, '');
 };
 
+const isSetEntry = (set: SetEntry | TemplateEntry): set is SetEntry => {
+    return 'weight' in set && 'reps' in set;
+};
+
 const WorkoutCreator: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -67,9 +76,9 @@ const WorkoutCreator: React.FC = () => {
     const [selectedExercise, setSelectedExercise] = useState<string>('');
     const [weight, setWeight] = useState<string>('');
     const [reps, setReps] = useState<string>('');
-    const [sets, setSets] = useState<SetEntry[]>([]);
+    const [sets, setSets] = useState<(SetEntry | TemplateEntry)[]>([]);
     const [exercises, setExercises] = useState<string[]>([]);
-    const [isTemplate, setIsTemplate] = useState<boolean>(false);
+    const [isTemplate, setIsTemplate] = useState<boolean>(location.state?.isTemplate || false);
     const [error, setError] = useState<string>('');
     const hasRestoredSets = useRef(false);
 
@@ -117,63 +126,125 @@ const WorkoutCreator: React.FC = () => {
         }
     }, [isTemplate, location.key]);
 
+    useEffect(() => {
+        const fetchLastSet = async () => {
+            if (!selectedExercise.trim() || isTemplate) return;
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('completed_sets')
+                .select('weight, reps, completed_workout:completed_workouts(user_id)')
+                .eq('exercise_name', selectedExercise)
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (!error && Array.isArray(data)) {
+                const lastMatch = (data as any[]).find((d) =>
+                    Array.isArray(d.completed_workout)
+                        ? d.completed_workout.some((cw) => cw.user_id === user.id)
+                        : d.completed_workout?.user_id === user.id
+                );
+
+                if (lastMatch) {
+                    setWeight(lastMatch.weight.toString());
+                    setReps(lastMatch.reps.toString());
+                }
+            }
+        };
+
+        fetchLastSet();
+    }, [selectedExercise, isTemplate]);
+
     const handleAddSet = async () => {
-        if (selectedExercise && weight && reps) {
-            const normalizedName = normalizeExerciseName(selectedExercise);
-            const matchedExercise = exercises.find(
-                (e) => normalizeExerciseName(e) === normalizedName
-            );
-    
-            const exerciseName = matchedExercise || selectedExercise;
+        if (!selectedExercise) {
+            setError('Please select an exercise');
+            return;
+        }
+
+        if (!isTemplate && (!weight || !reps)) {
+            setError('Please fill in all fields');
+            return;
+        }
+
+        const normalizedName = normalizeExerciseName(selectedExercise);
+        const matchedExercise = exercises.find(
+            (e) => normalizeExerciseName(e) === normalizedName
+        );
+
+        const exerciseName = matchedExercise || selectedExercise;
+
+        if (isTemplate) {
+            const newTemplateEntry: TemplateEntry = {
+                id: Date.now(),
+                exercise: exerciseName,
+            };
+            setSets(prev => [...prev, newTemplateEntry]);
+            setSelectedExercise('');
+        } else {
             const newSet: SetEntry = {
                 id: Date.now(),
                 exercise: exerciseName,
                 weight: parseFloat(weight),
                 reps: parseInt(reps)
             };
-    
+
             // Get past sets from database
             const { data: pastData, error: fetchError } = await supabase
                 .from('completed_sets')
                 .select('weight, reps')
                 .eq('exercise_name', exerciseName)
                 .order('created_at', { ascending: false });
-    
+
             if (fetchError) console.error('Error fetching sets:', fetchError);
-    
+
             // Combine past and current session sets
-            const currentSessionSets = sets.filter(s => normalizeExerciseName(s.exercise) === normalizedName);
+            const currentSessionSets = sets.filter(s => 'weight' in s && normalizeExerciseName(s.exercise) === normalizedName) as SetEntry[];
             const allSets = [...(pastData || []), ...currentSessionSets];
-    
+
             // Check for PR
             const isWeightPR = allSets.every(s => newSet.weight > s.weight);
             const isRepsPR = allSets
                 .filter(s => s.weight === newSet.weight)
                 .every(s => newSet.reps > s.reps);
-    
+
             if (isWeightPR) {
                 alert('🎉 New personal record: highest weight!');
             } else if (isRepsPR) {
                 alert('🔥 New personal record: most reps at this weight!');
             }
-    
+
             setSets(prev => [...prev, newSet]);
+            // Don't clear selectedExercise in workout mode
             setWeight('');
             setReps('');
-            setError('');
-    
-            // Insert new exercise if not in list
-            if (!matchedExercise) {
-                const { error: insertError } = await supabase
-                    .from('exercises')
-                    .insert([{ exercise_name: selectedExercise }]);
-    
-                if (!insertError || insertError.code === '23505') {
-                    setExercises(prev => [...prev, selectedExercise]);
-                }
+            
+            // Fetch last set data for the next set
+            const { data: lastSetData, error: lastSetError } = await supabase
+                .from('completed_sets')
+                .select('weight, reps')
+                .eq('exercise_name', exerciseName)
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (!lastSetError && lastSetData && lastSetData.length > 0) {
+                setWeight(lastSetData[0].weight.toString());
+                setReps(lastSetData[0].reps.toString());
             }
-        } else {
-            setError('Please fill in all fields');
+        }
+
+        setError('');
+
+        // Insert new exercise if not in list
+        if (!matchedExercise) {
+            const { error: insertError } = await supabase
+                .from('exercises')
+                .insert([{ exercise_name: selectedExercise }]);
+
+            if (!insertError || insertError.code === '23505') {
+                setExercises(prev => [...prev, selectedExercise]);
+            }
         }
     };
 
@@ -187,7 +258,7 @@ const WorkoutCreator: React.FC = () => {
             return;
         }
         if (sets.length === 0) {
-            setError('Please add at least one set');
+            setError('Please add at least one exercise');
             return;
         }
 
@@ -204,14 +275,11 @@ const WorkoutCreator: React.FC = () => {
                 .insert([{
                     user_id: user.id,
                     name: workoutName,
-                    exercises: sets.map(set => ({
-                        exercise: set.exercise,
-                        weight: set.weight,
-                        reps: set.reps
-                    }))
+                    exercises: sets.map(set => set.exercise)
                 }]);
 
             if (error) {
+                console.error('Template save error:', error);
                 setError('Failed to save template');
                 return;
             }
@@ -228,13 +296,18 @@ const WorkoutCreator: React.FC = () => {
             }
 
             const workoutId = data[0].id;
-            const setsData = sets.map((set, index) => ({
-                completed_workout_id: workoutId,
-                exercise_name: set.exercise,
-                set_number: index + 1,
-                weight: set.weight,
-                reps: set.reps
-            }));
+            const setsData = sets.map((set, index) => {
+                if (!isSetEntry(set)) {
+                    throw new Error('Invalid set type for completed workout');
+                }
+                return {
+                    completed_workout_id: workoutId,
+                    exercise_name: set.exercise,
+                    set_number: index + 1,
+                    weight: set.weight,
+                    reps: set.reps
+                };
+            });
 
             const { error: setsError } = await supabase
                 .from('completed_sets')
@@ -300,7 +373,9 @@ const WorkoutCreator: React.FC = () => {
 
                 {/* Add Exercise Section */}
                 <div style={{ marginBottom: '24px' }}>
-                    <h3 className="section-header" style={{ fontSize: '18px', marginBottom: '12px' }}>Add Exercise</h3>
+                    <h3 className="section-header" style={{ fontSize: '18px', marginBottom: '12px' }}>
+                        {isTemplate ? 'Add Exercise to Template' : 'Add Exercise'}
+                    </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <div style={{ position: 'relative' }}>
                             <input
@@ -331,38 +406,40 @@ const WorkoutCreator: React.FC = () => {
                                 ))}
                             </datalist>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            <input
-                                type="number"
-                                placeholder="Weight (lbs)"
-                                value={weight}
-                                onChange={(e) => setWeight(e.target.value)}
-                                style={{
-                                    padding: '12px',
-                                    borderRadius: '4px',
-                                    border: '1px solid var(--border-color)',
-                                    fontSize: '16px'
-                                }}
-                            />
-                            <input
-                                type="number"
-                                placeholder="Reps"
-                                value={reps}
-                                onChange={(e) => setReps(e.target.value)}
-                                style={{
-                                    padding: '12px',
-                                    borderRadius: '4px',
-                                    border: '1px solid var(--border-color)',
-                                    fontSize: '16px'
-                                }}
-                            />
-                        </div>
+                        {!isTemplate && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <input
+                                    type="number"
+                                    placeholder="Weight (lbs)"
+                                    value={weight}
+                                    onChange={(e) => setWeight(e.target.value)}
+                                    style={{
+                                        padding: '12px',
+                                        borderRadius: '4px',
+                                        border: '1px solid var(--border-color)',
+                                        fontSize: '16px'
+                                    }}
+                                />
+                                <input
+                                    type="number"
+                                    placeholder="Reps"
+                                    value={reps}
+                                    onChange={(e) => setReps(e.target.value)}
+                                    style={{
+                                        padding: '12px',
+                                        borderRadius: '4px',
+                                        border: '1px solid var(--border-color)',
+                                        fontSize: '16px'
+                                    }}
+                                />
+                            </div>
+                        )}
                         <button
                             className="primary-button"
                             onClick={handleAddSet}
                             style={{ padding: '12px' }}
                         >
-                            Add Set
+                            {isTemplate ? 'Add Exercise' : 'Add Set'}
                         </button>
                     </div>
                 </div>
@@ -380,11 +457,11 @@ const WorkoutCreator: React.FC = () => {
                     </div>
                 )}
 
-                {/* Sets List */}
+                {/* Sets/Exercises List */}
                 {sets.length > 0 && (
                     <div style={{ marginBottom: '24px' }}>
                         <h3 className="section-header" style={{ fontSize: '18px', marginBottom: '12px' }}>
-                            Sets ({sets.length})
+                            {isTemplate ? `Exercises (${sets.length})` : `Sets (${sets.length})`}
                         </h3>
                         <div style={{
                             border: '1px solid var(--border-color)',
@@ -396,7 +473,7 @@ const WorkoutCreator: React.FC = () => {
                                     key={set.id}
                                     style={{
                                         display: 'grid',
-                                        gridTemplateColumns: '24px 1fr auto auto auto',
+                                        gridTemplateColumns: isTemplate ? '24px 1fr auto' : '24px 1fr auto auto auto',
                                         gap: '12px',
                                         padding: '12px',
                                         borderBottom: index < sets.length - 1 ? '1px solid var(--border-color)' : 'none',
@@ -406,8 +483,12 @@ const WorkoutCreator: React.FC = () => {
                                 >
                                     <span style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>{index + 1}</span>
                                     <span style={{ fontWeight: 500 }}>{set.exercise}</span>
-                                    <span style={{ color: 'var(--text-secondary)' }}>{set.weight} lbs</span>
-                                    <span style={{ color: 'var(--text-secondary)' }}>{set.reps} reps</span>
+                                    {!isTemplate && isSetEntry(set) && (
+                                        <>
+                                            <span style={{ color: 'var(--text-secondary)' }}>{set.weight} lbs</span>
+                                            <span style={{ color: 'var(--text-secondary)' }}>{set.reps} reps</span>
+                                        </>
+                                    )}
                                     <button
                                         onClick={() => handleDeleteSet(index)}
                                         style={{
