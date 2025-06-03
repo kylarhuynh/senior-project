@@ -91,6 +91,18 @@ const WorkoutCreator: React.FC = () => {
     const [error, setError] = useState<string>('');
     const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
     const hasRestoredSets = useRef(false);
+    const [currentExerciseIndex, setCurrentExerciseIndex] = useState<number>(0);
+    const [templateExercises, setTemplateExercises] = useState<string[]>([]);
+
+    // Handle template data if it exists
+    useEffect(() => {
+        if (location.state?.template) {
+            const { name, exercises } = location.state.template;
+            setWorkoutName(name);
+            setTemplateExercises(exercises.map((ex: any) => ex.exercise));
+            setSelectedExercise(exercises[0].exercise);
+        }
+    }, [location.state]);
 
     // Function to get location data from coordinates
     const getLocationData = async (latitude: number, longitude: number): Promise<LocationData> => {
@@ -174,7 +186,7 @@ const WorkoutCreator: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        if (!isTemplate && !hasRestoredSets.current) {
+        if (!isTemplate && !hasRestoredSets.current && !location.state?.template) {
             const savedWorkoutName = localStorage.getItem('workoutName');
             const savedSets = localStorage.getItem('sets');
             if (savedWorkoutName) setWorkoutName(savedWorkoutName);
@@ -197,7 +209,7 @@ const WorkoutCreator: React.FC = () => {
                 }
             }
         }
-    }, [isTemplate, location.key]);
+    }, [isTemplate, location.key, location.state]);
 
     const handleAddSet = async () => {
         if (!selectedExercise) {
@@ -259,7 +271,10 @@ const WorkoutCreator: React.FC = () => {
             setSets(prev => [...prev, newSet]);
         }
 
-        setSelectedExercise('');
+        // Only clear selectedExercise if not using a template
+        if (!location.state?.template) {
+            setSelectedExercise('');
+        }
         setWeight('');
         setReps('');
         setError('');
@@ -278,6 +293,30 @@ const WorkoutCreator: React.FC = () => {
 
     const handleDeleteSet = (index: number) => {
         setSets(sets.filter((_, i) => i !== index));
+    };
+
+    const handleNextExercise = () => {
+        if (currentExerciseIndex < templateExercises.length - 1) {
+            setCurrentExerciseIndex(currentExerciseIndex + 1);
+            setSelectedExercise(templateExercises[currentExerciseIndex + 1]);
+        }
+    };
+
+    const handlePreviousExercise = () => {
+        if (currentExerciseIndex > 0) {
+            setCurrentExerciseIndex(currentExerciseIndex - 1);
+            setSelectedExercise(templateExercises[currentExerciseIndex - 1]);
+        }
+    };
+
+    const handleFinishWorkout = async () => {
+        try {
+            await handleSaveWorkout();
+            navigate('/activity-feed');
+        } catch (error) {
+            console.error('Error finishing workout:', error);
+            setError(error instanceof Error ? error.message : 'Failed to finish workout');
+        }
     };
 
     const handleSaveWorkout = async () => {
@@ -432,31 +471,33 @@ const WorkoutCreator: React.FC = () => {
                     </div>
                 )}
 
-                {/* Mode Toggle */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    gap: '12px',
-                    marginBottom: '24px',
-                    padding: '8px',
-                    background: 'var(--background-color)',
-                    borderRadius: '8px'
-                }}>
-                    <button
-                        className={!isTemplate ? "primary-button" : "secondary-button"}
-                        onClick={() => setIsTemplate(false)}
-                        style={{ flex: 1, maxWidth: '200px' }}
-                    >
-                        Record Workout
-                    </button>
-                    <button
-                        className={isTemplate ? "primary-button" : "secondary-button"}
-                        onClick={() => setIsTemplate(true)}
-                        style={{ flex: 1, maxWidth: '200px' }}
-                    >
-                        Create Template
-                    </button>
-                </div>
+                {/* Mode Toggle - Only show if not using a template */}
+                {!location.state?.template && (
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        marginBottom: '24px',
+                        padding: '8px',
+                        background: 'var(--background-color)',
+                        borderRadius: '8px'
+                    }}>
+                        <button
+                            className={!isTemplate ? "primary-button" : "secondary-button"}
+                            onClick={() => setIsTemplate(false)}
+                            style={{ flex: 1, maxWidth: '200px' }}
+                        >
+                            Record Workout
+                        </button>
+                        <button
+                            className={isTemplate ? "primary-button" : "secondary-button"}
+                            onClick={() => setIsTemplate(true)}
+                            style={{ flex: 1, maxWidth: '200px' }}
+                        >
+                            Create Template
+                        </button>
+                    </div>
+                )}
 
                 {/* Workout Name */}
                 <input
@@ -481,35 +522,47 @@ const WorkoutCreator: React.FC = () => {
                         {isTemplate ? 'Add Exercise to Template' : 'Add Exercise'}
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ position: 'relative' }}>
-                            <input
-                                type="text"
-                                list="exercise-categories"
-                                placeholder="Select or type an exercise"
-                                value={selectedExercise}
-                                onChange={(e) => setSelectedExercise(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    borderRadius: '4px',
-                                    border: '1px solid var(--border-color)',
-                                    fontSize: '16px',
-                                    boxSizing: 'border-box'
-                                }}
-                            />
-                            <datalist id="exercise-categories">
-                                {Object.entries(COMMON_EXERCISES).map(([category, exercises]) => (
-                                    exercises.map((exercise) => (
-                                        <option key={`${category}-${exercise}`} value={exercise}>
-                                            {`${exercise} (${category})`}
-                                        </option>
-                                    ))
-                                ))}
-                                {exercises.map((exercise) => (
-                                    <option key={exercise} value={exercise} />
-                                ))}
-                            </datalist>
-                        </div>
+                        {!location.state?.template ? (
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="text"
+                                    list="exercise-categories"
+                                    placeholder="Select or type an exercise"
+                                    value={selectedExercise}
+                                    onChange={(e) => setSelectedExercise(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        borderRadius: '4px',
+                                        border: '1px solid var(--border-color)',
+                                        fontSize: '16px',
+                                        boxSizing: 'border-box'
+                                    }}
+                                />
+                                <datalist id="exercise-categories">
+                                    {Object.entries(COMMON_EXERCISES).map(([category, exercises]) => (
+                                        exercises.map((exercise) => (
+                                            <option key={`${category}-${exercise}`} value={exercise}>
+                                                {`${exercise} (${category})`}
+                                            </option>
+                                        ))
+                                    ))}
+                                    {exercises.map((exercise) => (
+                                        <option key={exercise} value={exercise} />
+                                    ))}
+                                </datalist>
+                            </div>
+                        ) : (
+                            <div style={{ 
+                                padding: '12px',
+                                backgroundColor: 'var(--background-color)',
+                                borderRadius: '4px',
+                                fontSize: '18px',
+                                fontWeight: 500
+                            }}>
+                                {selectedExercise}
+                            </div>
+                        )}
                         {!isTemplate && (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                 <input
@@ -612,6 +665,35 @@ const WorkoutCreator: React.FC = () => {
                     </div>
                 )}
 
+                {/* Navigation Buttons for Template Workout */}
+                {location.state?.template && (
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        gap: '20px', 
+                        marginTop: '20px',
+                        marginBottom: '20px'
+                    }}>
+                        <button 
+                            className="secondary-button"
+                            onClick={handlePreviousExercise} 
+                            disabled={currentExerciseIndex === 0}
+                            style={{
+                                opacity: currentExerciseIndex === 0 ? 0.5 : 1,
+                                cursor: currentExerciseIndex === 0 ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            Previous Exercise
+                        </button>
+                        <button 
+                            className="primary-button"
+                            onClick={currentExerciseIndex < templateExercises.length - 1 ? handleNextExercise : handleFinishWorkout}
+                        >
+                            {currentExerciseIndex < templateExercises.length - 1 ? "Next Exercise" : "Finish Workout"}
+                        </button>
+                    </div>
+                )}
+
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
                     <button
@@ -620,12 +702,14 @@ const WorkoutCreator: React.FC = () => {
                     >
                         Cancel
                     </button>
-                    <button
-                        className="primary-button"
-                        onClick={handleSaveWorkout}
-                    >
-                        {isTemplate ? 'Save Template' : 'Complete Workout'}
-                    </button>
+                    {!location.state?.template && (
+                        <button
+                            className="primary-button"
+                            onClick={handleSaveWorkout}
+                        >
+                            {isTemplate ? 'Save Template' : 'Complete Workout'}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
