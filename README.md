@@ -20,7 +20,7 @@ A comprehensive web application for tracking and managing your gym workouts, bui
 
 ## Installation
 
-2. Install dependencies:
+Install dependencies:
 ```bash
 # Dependencies
 npm install @supabase/supabase-js
