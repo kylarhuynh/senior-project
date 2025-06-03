@@ -94,6 +94,55 @@ const WorkoutCreator: React.FC = () => {
     const [currentExerciseIndex, setCurrentExerciseIndex] = useState<number>(0);
     const [templateExercises, setTemplateExercises] = useState<string[]>([]);
 
+    // Function to fetch last used weight and reps for an exercise
+    const fetchLastUsedValues = async (exerciseName: string) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        try {
+            // First get the user's most recent workout
+            const { data: workoutData, error: workoutError } = await supabase
+                .from('completed_workouts')
+                .select('id')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            // If no workout found or error, just clear the fields
+            if (workoutError || !workoutData) {
+                setWeight('');
+                setReps('');
+                return;
+            }
+
+            // Then get the most recent set for this exercise from that workout
+            const { data, error } = await supabase
+                .from('completed_sets')
+                .select('weight, reps')
+                .eq('completed_workout_id', workoutData.id)
+                .eq('exercise_name', exerciseName)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            // If no set found or error, just clear the fields
+            if (error || !data) {
+                setWeight('');
+                setReps('');
+                return;
+            }
+
+            // If we found data, set the values
+            setWeight(data.weight.toString());
+            setReps(data.reps.toString());
+        } catch (error) {
+            // If any unexpected error occurs, just clear the fields
+            setWeight('');
+            setReps('');
+        }
+    };
+
     // Handle template data if it exists
     useEffect(() => {
         if (location.state?.template) {
@@ -101,8 +150,16 @@ const WorkoutCreator: React.FC = () => {
             setWorkoutName(name);
             setTemplateExercises(exercises.map((ex: any) => ex.exercise));
             setSelectedExercise(exercises[0].exercise);
+            fetchLastUsedValues(exercises[0].exercise);
         }
     }, [location.state]);
+
+    // Fetch last used values when exercise changes
+    useEffect(() => {
+        if (selectedExercise && !isTemplate) {
+            fetchLastUsedValues(selectedExercise);
+        }
+    }, [selectedExercise, isTemplate]);
 
     // Function to get location data from coordinates
     const getLocationData = async (latitude: number, longitude: number): Promise<LocationData> => {
@@ -271,12 +328,7 @@ const WorkoutCreator: React.FC = () => {
             setSets(prev => [...prev, newSet]);
         }
 
-        // Only clear selectedExercise if not using a template
-        if (!location.state?.template) {
-            setSelectedExercise('');
-        }
-        setWeight('');
-        setReps('');
+        // Only clear error message
         setError('');
 
         // Insert new exercise if not in list
@@ -529,7 +581,12 @@ const WorkoutCreator: React.FC = () => {
                                     list="exercise-categories"
                                     placeholder="Select or type an exercise"
                                     value={selectedExercise}
-                                    onChange={(e) => setSelectedExercise(e.target.value)}
+                                    onChange={(e) => {
+                                        setSelectedExercise(e.target.value);
+                                        if (e.target.value) {
+                                            fetchLastUsedValues(e.target.value);
+                                        }
+                                    }}
                                     style={{
                                         width: '100%',
                                         padding: '12px',
