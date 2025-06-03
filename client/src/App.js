@@ -11,6 +11,7 @@ import ActivityFeed from './pages/workouts/activity-feed.tsx';
 import CaloriesHome from './pages/calories/calorieshome.tsx';
 import CaloriesHistory from './pages/calories/calorieshistory.tsx';
 import SignUpPage from './pages/signup.tsx';
+import MapView from './pages/map/MapView.tsx';
 
 /* Old workout pages moved to /pages/oldWorkouts:
 import BuildWorkoutPage from './pages/oldWorkouts/buildworkout.tsx';
@@ -38,6 +39,7 @@ function App() {
           <Route path="/activity-feed" element={<ActivityFeed />} />
           <Route path="/calorieshome" element={<CaloriesHome />} />
           <Route path="/calorieshistory" element={<CaloriesHistory />} />
+          <Route path="/map" element={<MapView />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Route>
 

@@ -28,6 +28,12 @@ const Layout = () => {
                     >
                         Nutrition
                     </button>
+                    <button 
+                        className={`secondary-button ${location.pathname === '/map' ? 'active' : ''}`} 
+                        onClick={() => navigate('/map')}
+                    >
+                        Map
+                    </button>
                 </div>
                 <button className="secondary-button" onClick={() => navigate('/login')}>
                     Logout

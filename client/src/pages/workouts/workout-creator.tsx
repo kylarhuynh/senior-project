@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
+import mapboxgl from 'mapbox-gl';
 import '../../styles.css';
 
 type SetEntry = {
@@ -13,6 +14,14 @@ type SetEntry = {
 type TemplateEntry = {
     id: number;
     exercise: string;
+};
+
+type LocationData = {
+    city: string;
+    state: string;
+    country: string;
+    latitude: number;
+    longitude: number;
 };
 
 // Common exercises grouped by category
@@ -80,7 +89,71 @@ const WorkoutCreator: React.FC = () => {
     const [exercises, setExercises] = useState<string[]>([]);
     const [isTemplate, setIsTemplate] = useState<boolean>(location.state?.isTemplate || false);
     const [error, setError] = useState<string>('');
+    const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
     const hasRestoredSets = useRef(false);
+
+    // Function to get location data from coordinates
+    const getLocationData = async (latitude: number, longitude: number): Promise<LocationData> => {
+        try {
+            const response = await fetch(
+                `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxgl.accessToken}`
+            );
+            const data = await response.json();
+            
+            if (data.features && data.features.length > 0) {
+                const place = data.features[0];
+                const context = place.context || [];
+                
+                // Extract city, state, and country from the context
+                const city = place.text || '';
+                const state = context.find((c: any) => c.id.startsWith('region'))?.text || '';
+                const country = context.find((c: any) => c.id.startsWith('country'))?.text || '';
+                
+                return {
+                    city,
+                    state,
+                    country,
+                    latitude,
+                    longitude
+                };
+            }
+            throw new Error('No location data found');
+        } catch (error) {
+            console.error('Error getting location data:', error);
+            throw error;
+        }
+    };
+
+    // Function to get current location
+    const getCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            setError('Geolocation is not supported by your browser');
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                try {
+                    const locationData = await getLocationData(
+                        position.coords.latitude,
+                        position.coords.longitude
+                    );
+                    setCurrentLocation(locationData);
+                } catch (error) {
+                    console.error('Error getting location data:', error);
+                    setError('Failed to get location data');
+                }
+            },
+            (error) => {
+                console.error('Error getting location:', error);
+                setError('Failed to get your location');
+            }
+        );
+    };
+
+    useEffect(() => {
+        getCurrentLocation();
+    }, []);
 
     useEffect(() => {
         const fetchGlobalExercises = async () => {
@@ -126,37 +199,6 @@ const WorkoutCreator: React.FC = () => {
         }
     }, [isTemplate, location.key]);
 
-    useEffect(() => {
-        const fetchLastSet = async () => {
-            if (!selectedExercise.trim() || isTemplate) return;
-
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            const { data, error } = await supabase
-                .from('completed_sets')
-                .select('weight, reps, completed_workout:completed_workouts(user_id)')
-                .eq('exercise_name', selectedExercise)
-                .order('created_at', { ascending: false })
-                .limit(10);
-
-            if (!error && Array.isArray(data)) {
-                const lastMatch = (data as any[]).find((d) =>
-                    Array.isArray(d.completed_workout)
-                        ? d.completed_workout.some((cw) => cw.user_id === user.id)
-                        : d.completed_workout?.user_id === user.id
-                );
-
-                if (lastMatch) {
-                    setWeight(lastMatch.weight.toString());
-                    setReps(lastMatch.reps.toString());
-                }
-            }
-        };
-
-        fetchLastSet();
-    }, [selectedExercise, isTemplate]);
-
     const handleAddSet = async () => {
         if (!selectedExercise) {
             setError('Please select an exercise');
@@ -181,7 +223,6 @@ const WorkoutCreator: React.FC = () => {
                 exercise: exerciseName,
             };
             setSets(prev => [...prev, newTemplateEntry]);
-            setSelectedExercise('');
         } else {
             const newSet: SetEntry = {
                 id: Date.now(),
@@ -216,24 +257,11 @@ const WorkoutCreator: React.FC = () => {
             }
 
             setSets(prev => [...prev, newSet]);
-            // Don't clear selectedExercise in workout mode
-            setWeight('');
-            setReps('');
-            
-            // Fetch last set data for the next set
-            const { data: lastSetData, error: lastSetError } = await supabase
-                .from('completed_sets')
-                .select('weight, reps')
-                .eq('exercise_name', exerciseName)
-                .order('created_at', { ascending: false })
-                .limit(1);
-
-            if (!lastSetError && lastSetData && lastSetData.length > 0) {
-                setWeight(lastSetData[0].weight.toString());
-                setReps(lastSetData[0].reps.toString());
-            }
         }
 
+        setSelectedExercise('');
+        setWeight('');
+        setReps('');
         setError('');
 
         // Insert new exercise if not in list
@@ -252,13 +280,14 @@ const WorkoutCreator: React.FC = () => {
         setSets(sets.filter((_, i) => i !== index));
     };
 
-    const handleSave = async () => {
+    const handleSaveWorkout = async () => {
         if (!workoutName.trim()) {
             setError('Please enter a workout name');
             return;
         }
+
         if (sets.length === 0) {
-            setError('Please add at least one exercise');
+            setError('Please add at least one set');
             return;
         }
 
@@ -268,66 +297,141 @@ const WorkoutCreator: React.FC = () => {
             return;
         }
 
-        if (isTemplate) {
-            // Save as template
-            const { error } = await supabase
-                .from('premade_workouts')
+        try {
+            // First, save the location if we have it
+            let locationId = null;
+            if (currentLocation) {
+                console.log('Saving location:', currentLocation);
+                const { data: locationData, error: locationError } = await supabase
+                    .from('locations')
+                    .insert([{
+                        city: currentLocation.city,
+                        state: currentLocation.state,
+                        country: currentLocation.country,
+                        latitude: currentLocation.latitude,
+                        longitude: currentLocation.longitude
+                    }])
+                    .select()
+                    .single();
+
+                if (locationError) {
+                    console.error('Location save error:', locationError);
+                    throw new Error(`Failed to save location: ${locationError.message}`);
+                }
+                locationId = locationData.id;
+                console.log('Location saved with ID:', locationId);
+
+                // Check for PRs at this location
+                for (const set of sets) {
+                    if ('weight' in set) {
+                        // Get existing PRs for this exercise at this location
+                        const { data: existingPRs, error: prError } = await supabase
+                            .from('location_prs')
+                            .select('weight, reps')
+                            .eq('user_id', user.id)
+                            .eq('location_id', locationId)
+                            .eq('exercise_name', set.exercise);
+
+                        if (prError) {
+                            console.error('Error checking PRs:', prError);
+                            continue;
+                        }
+
+                        // Check if this is a new PR
+                        const isNewPR = !existingPRs || existingPRs.length === 0 || 
+                            existingPRs.every(pr => set.weight > pr.weight || 
+                                (set.weight === pr.weight && set.reps > pr.reps));
+
+                        if (isNewPR) {
+                            // Save the new PR
+                            const { error: savePRError } = await supabase
+                                .from('location_prs')
+                                .insert([{
+                                    user_id: user.id,
+                                    location_id: locationId,
+                                    exercise_name: set.exercise,
+                                    weight: set.weight,
+                                    reps: set.reps
+                                }]);
+
+                            if (savePRError) {
+                                console.error('Error saving PR:', savePRError);
+                            } else {
+                                console.log('New PR saved for', set.exercise);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Then save the workout
+            console.log('Saving workout:', { workoutName, locationId });
+            const { data: workoutData, error: workoutError } = await supabase
+                .from('completed_workouts')
                 .insert([{
                     user_id: user.id,
-                    name: workoutName,
-                    exercises: sets.map(set => set.exercise)
-                }]);
+                    workout_name: workoutName,
+                    location_id: locationId
+                }])
+                .select()
+                .single();
 
-            if (error) {
-                console.error('Template save error:', error);
-                setError('Failed to save template');
-                return;
+            if (workoutError) {
+                console.error('Workout save error:', workoutError);
+                throw new Error(`Failed to save workout: ${workoutError.message}`);
             }
-        } else {
-            // Save as completed workout
-            const { data, error } = await supabase
-                .from('completed_workouts')
-                .insert([{ user_id: user.id, workout_name: workoutName }])
-                .select();
+            console.log('Workout saved with ID:', workoutData.id);
 
-            if (error || !data) {
-                setError('Failed to save workout');
-                return;
-            }
-
-            const workoutId = data[0].id;
-            const setsData = sets.map((set, index) => {
-                if (!isSetEntry(set)) {
-                    throw new Error('Invalid set type for completed workout');
-                }
-                return {
-                    completed_workout_id: workoutId,
-                    exercise_name: set.exercise,
-                    set_number: index + 1,
-                    weight: set.weight,
-                    reps: set.reps
-                };
-            });
+            // Save the sets
+            const setEntries = sets.map((set, index) => ({
+                completed_workout_id: workoutData.id,
+                exercise_name: set.exercise,
+                weight: 'weight' in set ? set.weight : null,
+                reps: 'weight' in set ? set.reps : null,
+                set_number: index + 1
+            }));
+            console.log('Saving sets:', setEntries);
 
             const { error: setsError } = await supabase
                 .from('completed_sets')
-                .insert(setsData);
+                .insert(setEntries);
 
             if (setsError) {
-                setError('Failed to save sets');
-                return;
+                console.error('Sets save error:', setsError);
+                throw new Error(`Failed to save sets: ${setsError.message}`);
             }
+            console.log('Sets saved successfully');
 
+            // Clear local storage
             localStorage.removeItem('workoutName');
             localStorage.removeItem('sets');
-        }
 
-        navigate(isTemplate ? '/templates' : '/activity-feed');
+            navigate('/workouthome');
+        } catch (error) {
+            console.error('Error saving workout:', error);
+            setError(error instanceof Error ? error.message : 'Failed to save workout');
+        }
     };
 
     return (
         <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
             <div className="content-card">
+                <h2 style={{ marginBottom: '16px' }}>{isTemplate ? 'Create Template' : 'Create Workout'}</h2>
+                
+                {currentLocation && (
+                    <div style={{ 
+                        marginBottom: '16px', 
+                        padding: '12px',
+                        backgroundColor: 'var(--background-color)',
+                        borderRadius: '4px'
+                    }}>
+                        <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Current Location</div>
+                        <div style={{ fontSize: '16px' }}>
+                            {currentLocation.city}, {currentLocation.state}, {currentLocation.country}
+                        </div>
+                    </div>
+                )}
+
                 {/* Mode Toggle */}
                 <div style={{
                     display: 'flex',
@@ -518,7 +622,7 @@ const WorkoutCreator: React.FC = () => {
                     </button>
                     <button
                         className="primary-button"
-                        onClick={handleSave}
+                        onClick={handleSaveWorkout}
                     >
                         {isTemplate ? 'Save Template' : 'Complete Workout'}
                     </button>
