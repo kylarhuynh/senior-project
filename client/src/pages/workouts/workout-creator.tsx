@@ -100,27 +100,10 @@ const WorkoutCreator: React.FC = () => {
         if (!user) return;
 
         try {
-            // First get the user's most recent workout
-            const { data: workoutData, error: workoutError } = await supabase
-                .from('completed_workouts')
-                .select('id')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            // If no workout found or error, just clear the fields
-            if (workoutError || !workoutData) {
-                setWeight('');
-                setReps('');
-                return;
-            }
-
-            // Then get the most recent set for this exercise from that workout
+            // Get the most recent set for this exercise from any workout
             const { data, error } = await supabase
                 .from('completed_sets')
                 .select('weight, reps')
-                .eq('completed_workout_id', workoutData.id)
                 .eq('exercise_name', exerciseName)
                 .order('created_at', { ascending: false })
                 .limit(1)
@@ -412,6 +395,7 @@ const WorkoutCreator: React.FC = () => {
                 return;
             }
 
+            // Only proceed with workout saving if it's not a template
             // Get location data
             let locationId = null;
             if (currentLocation) {
@@ -434,8 +418,7 @@ const WorkoutCreator: React.FC = () => {
                 locationId = locationData.id;
             }
 
-            // Then save the workout
-            console.log('Saving workout:', { workoutName, locationId });
+            // Save the workout
             const { data: workoutData, error: workoutError } = await supabase
                 .from('completed_workouts')
                 .insert([{
@@ -450,7 +433,6 @@ const WorkoutCreator: React.FC = () => {
                 console.error('Workout save error:', workoutError);
                 throw new Error(`Failed to save workout: ${workoutError.message}`);
             }
-            console.log('Workout saved with ID:', workoutData.id);
 
             // Save the sets
             const setEntries = sets.map((set, index) => ({
@@ -460,7 +442,6 @@ const WorkoutCreator: React.FC = () => {
                 reps: 'weight' in set ? set.reps : null,
                 set_number: index + 1
             }));
-            console.log('Saving sets:', setEntries);
 
             const { error: setsError } = await supabase
                 .from('completed_sets')
@@ -470,7 +451,6 @@ const WorkoutCreator: React.FC = () => {
                 console.error('Sets save error:', setsError);
                 throw new Error(`Failed to save sets: ${setsError.message}`);
             }
-            console.log('Sets saved successfully');
 
             // Clear local storage
             localStorage.removeItem('workoutName');

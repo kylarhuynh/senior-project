@@ -3,6 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import '../styles.css';
 
+interface WorkoutWithSets {
+    id: string;
+    workout_name: string;
+    created_at: string;
+    sets: {
+        exercise_name: string;
+        weight: number;
+        reps: number;
+    }[];
+}
+
 const HomePage: React.FC = () => {
     const navigate = useNavigate();
     const [calorieGoal, setCalorieGoal] = useState<number | null>(null);
@@ -10,10 +21,62 @@ const HomePage: React.FC = () => {
     const [remainingCalories, setRemainingCalories] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [userName, setUserName] = useState<string>('');
+    const [recentWorkouts, setRecentWorkouts] = useState<WorkoutWithSets[]>([]);
 
     useEffect(() => {
         fetchUserData();
+        fetchRecentWorkouts();
     }, []);
+
+    const fetchRecentWorkouts = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Get today's date in ISO format
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayISO = today.toISOString();
+
+        // Fetch today's workouts
+        const { data: workoutsData, error: workoutsError } = await supabase
+            .from('completed_workouts')
+            .select('id, workout_name, created_at')
+            .eq('user_id', user.id)
+            .eq('is_template', false)
+            .gte('created_at', todayISO)
+            .order('created_at', { ascending: false });
+
+        if (workoutsError) {
+            console.error('Error fetching workouts:', workoutsError);
+            return;
+        }
+
+        // Fetch sets for each workout
+        const workoutsWithSets = await Promise.all(
+            workoutsData.map(async (workout) => {
+                const { data: setsData } = await supabase
+                    .from('completed_sets')
+                    .select('exercise_name, weight, reps')
+                    .eq('completed_workout_id', workout.id)
+                    .order('set_number');
+
+                return {
+                    ...workout,
+                    sets: setsData || []
+                };
+            })
+        );
+
+        setRecentWorkouts(workoutsWithSets);
+    };
+
+    const formatTime = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: 'numeric'
+        });
+    };
 
     const fetchUserData = async () => {
         setLoading(true);
@@ -107,19 +170,36 @@ const HomePage: React.FC = () => {
             {/* Recent Activity Feed */}
             <div className="content-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h3 className="section-header" style={{ margin: 0 }}>Recent Activity</h3>
+                    <h3 className="section-header" style={{ margin: 0 }}>Today's Workouts</h3>
                     <button className="secondary-button" onClick={() => navigate('/activity-feed')}>
                         View All
                     </button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)' }}>
-                        <div style={{ fontWeight: 600, marginBottom: '8px' }}>Your Workout History</div>
-                        <p style={{ color: 'var(--text-secondary)' }}>
-                            Track your progress and view past workouts
-                        </p>
+                {recentWorkouts.length === 0 ? (
+                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        No workouts recorded today
                     </div>
-                </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {recentWorkouts.map((workout) => (
+                            <div key={workout.id} style={{ padding: '16px', borderBottom: '1px solid var(--border-color)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                    <div style={{ fontWeight: 600 }}>{workout.workout_name}</div>
+                                    <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                                        {formatTime(workout.created_at)}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px' }}>
+                                    {workout.sets.map((set, index) => (
+                                        <div key={index} style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+                                            {set.exercise_name}: {set.weight}lbs × {set.reps}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
