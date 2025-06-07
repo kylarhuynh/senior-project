@@ -174,9 +174,9 @@ const WorkoutCreator: React.FC = () => {
                 const context = place.context || [];
                 
                 // Extract city, state, and country from the context
-                const city = place.text || '';
-                const state = context.find((c: any) => c.id.startsWith('region'))?.text || '';
-                const country = context.find((c: any) => c.id.startsWith('country'))?.text || '';
+                const city = place.text || 'Unknown City';
+                const state = context.find((c: any) => c.id.startsWith('region'))?.text || 'Unknown State';
+                const country = context.find((c: any) => c.id.startsWith('country'))?.text || 'Unknown Country';
                 
                 return {
                     city,
@@ -186,10 +186,24 @@ const WorkoutCreator: React.FC = () => {
                     longitude
                 };
             }
-            throw new Error('No location data found');
+            // Return default values if no location data found
+            return {
+                city: 'Unknown City',
+                state: 'Unknown State',
+                country: 'Unknown Country',
+                latitude,
+                longitude
+            };
         } catch (error) {
             console.error('Error getting location data:', error);
-            throw error;
+            // Return default values on error
+            return {
+                city: 'Unknown City',
+                state: 'Unknown State',
+                country: 'Unknown Country',
+                latitude,
+                longitude
+            };
         }
     };
 
@@ -372,33 +386,41 @@ const WorkoutCreator: React.FC = () => {
     };
 
     const handleSaveWorkout = async () => {
-        if (!workoutName.trim()) {
-            setError('Please enter a workout name');
-            return;
-        }
-
-        if (sets.length === 0) {
-            setError('Please add at least one set');
-            return;
-        }
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            setError('User not logged in');
-            return;
-        }
-
         try {
-            // First, save the location if we have it
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                throw new Error('User not authenticated');
+            }
+
+            if (isTemplate) {
+                // Save template to premade_workouts table
+                const { error: templateError } = await supabase
+                    .from('premade_workouts')
+                    .insert([{
+                        user_id: user.id,
+                        name: workoutName,
+                        exercises: sets.map(set => set.exercise)
+                    }]);
+
+                if (templateError) {
+                    console.error('Template save error:', templateError);
+                    throw new Error(`Failed to save template: ${templateError.message}`);
+                }
+
+                // Navigate to templates page
+                navigate('/templates');
+                return;
+            }
+
+            // Get location data
             let locationId = null;
             if (currentLocation) {
-                console.log('Saving location:', currentLocation);
                 const { data: locationData, error: locationError } = await supabase
                     .from('locations')
                     .insert([{
-                        city: currentLocation.city,
-                        state: currentLocation.state,
-                        country: currentLocation.country,
+                        city: currentLocation.city || 'Unknown City',
+                        state: currentLocation.state || 'Unknown State',
+                        country: currentLocation.country || 'Unknown Country',
                         latitude: currentLocation.latitude,
                         longitude: currentLocation.longitude
                     }])
@@ -410,49 +432,6 @@ const WorkoutCreator: React.FC = () => {
                     throw new Error(`Failed to save location: ${locationError.message}`);
                 }
                 locationId = locationData.id;
-                console.log('Location saved with ID:', locationId);
-
-                // Check for PRs at this location
-                for (const set of sets) {
-                    if ('weight' in set) {
-                        // Get existing PRs for this exercise at this location
-                        const { data: existingPRs, error: prError } = await supabase
-                            .from('location_prs')
-                            .select('weight, reps')
-                            .eq('user_id', user.id)
-                            .eq('location_id', locationId)
-                            .eq('exercise_name', set.exercise);
-
-                        if (prError) {
-                            console.error('Error checking PRs:', prError);
-                            continue;
-                        }
-
-                        // Check if this is a new PR
-                        const isNewPR = !existingPRs || existingPRs.length === 0 || 
-                            existingPRs.every(pr => set.weight > pr.weight || 
-                                (set.weight === pr.weight && set.reps > pr.reps));
-
-                        if (isNewPR) {
-                            // Save the new PR
-                            const { error: savePRError } = await supabase
-                                .from('location_prs')
-                                .insert([{
-                                    user_id: user.id,
-                                    location_id: locationId,
-                                    exercise_name: set.exercise,
-                                    weight: set.weight,
-                                    reps: set.reps
-                                }]);
-
-                            if (savePRError) {
-                                console.error('Error saving PR:', savePRError);
-                            } else {
-                                console.log('New PR saved for', set.exercise);
-                            }
-                        }
-                    }
-                }
             }
 
             // Then save the workout
